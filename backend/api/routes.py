@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity
-from models import User, BotConfig, AirdropProject
+from models.models import User, BotConfig, AirdropProject
 from app import db, celery
 
 api_bp = Blueprint('api', __name__)
