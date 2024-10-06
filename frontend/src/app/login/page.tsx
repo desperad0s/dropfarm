@@ -1,85 +1,99 @@
 "use client"
 
 import { useState } from "react"
-import { login } from "@/lib/api"
 import { useRouter } from "next/navigation"
+import { useAuth } from '@/lib/auth'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { AlertCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import Link from 'next/link'
 
-export default function Login() {
+export default function LoginPage() {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const router = useRouter()
+  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
     try {
-      const result = await login(username, password)
-      console.log('Login successful', result)
-      localStorage.setItem('token', result.access_token)
-      router.push('/dashboard')
-    } catch (error) {
-      console.error('Login failed', error)
-      setError('Invalid username or password. Please try again.')
+      await login(username, password)
+      router.push('/') // Redirect to the homepage after successful login
+    } catch (err) {
+      setError('Failed to log in')
     }
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="w-[350px]">
-        <CardHeader>
-          <CardTitle>Login</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <div className="grid w-full items-center gap-4">
-              <div className="flex flex-col space-y-1.5">
-                <Label htmlFor="username">Username</Label>
+    <div className="flex min-h-screen flex-col items-center justify-center py-12 sm:px-6 lg:px-8 bg-background">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-foreground">Sign in to your account</h2>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-card py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <Label htmlFor="username" className="text-foreground">Username</Label>
+              <div className="mt-2">
                 <Input
                   id="username"
-                  placeholder="Enter your username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-background text-foreground"
                 />
               </div>
             </div>
-            {error && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button className="w-full mt-4" type="submit">
-              Login
-            </Button>
+
+            <div>
+              <Label htmlFor="password" className="text-foreground">Password</Label>
+              <div className="mt-2">
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-background text-foreground"
+                />
+              </div>
+            </div>
+
+            {error && <p className="text-destructive">{error}</p>}
+
+            <div>
+              <Button type="submit" className="w-full">
+                Sign in
+              </Button>
+            </div>
           </form>
-        </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <a href="/register" className="text-primary hover:underline">
-              Register
-            </a>
-          </p>
-        </CardFooter>
-      </Card>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-muted" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-card px-2 text-muted-foreground">Or</span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <Link href="/register" className="w-full inline-flex justify-center rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground shadow-sm hover:bg-secondary/90">
+                Create new account
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

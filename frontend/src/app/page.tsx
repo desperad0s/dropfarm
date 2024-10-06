@@ -7,9 +7,8 @@ import { Play, Pause, Activity, DollarSign, CreditCard, Users } from "lucide-rea
 import { EarningsChart } from "@/components/earnings-chart"
 import { getDashboardData, startBot, stopBot } from "@/lib/api"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import axios from 'axios'  // Import axios
 import { Spinner } from "@/components/ui/spinner"
+import io from 'socket.io-client'
 
 interface DashboardData {
   totalEarnings: number;
@@ -24,13 +23,13 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchInitialData = async () => {
       try {
         const data = await getDashboardData();
         setDashboardData(data);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        if (axios.isAxiosError(error) && error.response?.status === 401) {
+        if (error.response?.status === 401) {
           setError("Unauthorized. Please log in again.");
           router.push('/login');
         } else {
@@ -39,14 +38,23 @@ export default function DashboardPage() {
       }
     };
 
-    fetchDashboardData();
+    fetchInitialData();
+
+    const socket = io('http://localhost:5000');
+    
+    socket.on('dashboard_update', (data: DashboardData) => {
+      setDashboardData(data);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [router]);
 
   const handleStartAllBots = async () => {
     try {
       await startBot(0);
-      const data = await getDashboardData();
-      setDashboardData(data);
+      // The dashboard data will be updated via Socket.IO
     } catch (error) {
       console.error('Error starting all bots:', error);
     }
@@ -55,8 +63,7 @@ export default function DashboardPage() {
   const handleStopAllBots = async () => {
     try {
       await stopBot(0);
-      const data = await getDashboardData();
-      setDashboardData(data);
+      // The dashboard data will be updated via Socket.IO
     } catch (error) {
       console.error('Error stopping all bots:', error);
     }

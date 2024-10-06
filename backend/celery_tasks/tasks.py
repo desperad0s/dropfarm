@@ -1,36 +1,41 @@
-from extensions import celery, db
-from bot.routines.goats import GOATSRoutine
-from models.models import BotActivity, User, AirdropProject
+from celery import shared_task
+from models import User, BotSettings, BotActivity
+from bot.routines.goats import GoatsBot
 import logging
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-@celery.task
-def run_goats_routine(user_id, project_id, settings):
-    logger.info(f"Starting GOATS routine for user {user_id} on project {project_id}")
-    try:
-        routine = GOATSRoutine(settings)
-        result = routine.run()
-        
-        # Log the activity
-        user = User.query.get(user_id)
-        project = AirdropProject.query.get(project_id)
-        activity = BotActivity(user_id=user_id, project_id=project_id, action='run', details=str(result))
-        db.session.add(activity)
-        db.session.commit()
-        
-        logger.info("GOATS routine completed successfully")
-        return {"status": "success", "message": "GOATS routine completed", "result": result}
-    except Exception as e:
-        logger.error(f"Error in GOATS routine: {str(e)}")
-        
-        # Log the error
-        activity = BotActivity(user_id=user_id, project_id=project_id, action='error', details=str(e))
-        db.session.add(activity)
-        db.session.commit()
-        
-        return {"status": "error", "message": str(e)}
+@shared_task
+def run_goats_bot(user_id):
+    logger.info(f"Starting GOATS bot for user {user_id}")
+    settings = BotSettings.get_by_user_id(user_id)
+    bot = GoatsBot(settings)
+    result = bot.run()
+    
+    # Log the activity
+    BotActivity.log(user_id, 'goats', 'run', result['status'], result['message'])
+    
+    # Update statistics
+    stats = bot.get_statistics()
+    User.update_statistics(user_id, stats['tasks_completed'], stats['rewards_earned'], stats['streak'])
+    
+    logger.info(f"GOATS bot completed for user {user_id}: {result}")
+    return result
 
-# You can add more tasks for other routines (1Win, PX) here
+@shared_task
+def update_statistics(user_id):
+    logger.info(f"Updating statistics for user {user_id}")
+    user = User.get_by_username(user_id)
+    if user:
+        stats = {
+            "total_tasks_completed": user.total_tasks_completed,
+            "total_rewards_earned": user.total_rewards_earned,
+            "current_streak": user.current_streak
+        }
+    else:
+        stats = {
+            "total_tasks_completed": 0,
+            "total_rewards_earned": 0,
+            "current_streak": 0
+        }
+    return stats

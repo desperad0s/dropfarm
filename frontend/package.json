@@ -17,6 +17,7 @@
     "@radix-ui/react-switch": "^1.1.1",
     "@radix-ui/react-tabs": "^1.1.1",
     "@shadcn/ui": "^0.0.4",
+    "@types/socket.io-client": "^1.4.36",
     "axios": "^1.7.7",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
@@ -27,6 +28,7 @@
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18",
     "recharts": "^2.12.7",
+    "socket.io-client": "^4.8.0",
     "swr": "^2.2.5",
     "tailwind-merge": "^2.5.3",
     "tailwindcss-animate": "^1.0.7"

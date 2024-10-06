@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useState } from 'react'
-import { Line } from 'react-chartjs-2'
+import React from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Bar } from 'react-chartjs-2'
 import {
 	Chart as ChartJS,
 	CategoryScale,
 	LinearScale,
-	PointElement,
-	LineElement,
+	BarElement,
 	Title,
 	Tooltip,
 	Legend,
@@ -17,45 +17,35 @@ import { getEarningsData } from '@/lib/api'
 ChartJS.register(
 	CategoryScale,
 	LinearScale,
-	PointElement,
-	LineElement,
+	BarElement,
 	Title,
 	Tooltip,
 	Legend
 )
 
 interface EarningsData {
-	date: string
-	amount: number
+	total: number
+	lastMonth: number
+	history: Array<{ date: string; amount: number }>
 }
 
-export function EarningsChart() {
-	const [earningsData, setEarningsData] = useState<EarningsData[]>([])
+interface EarningsChartProps {
+	earningsData?: EarningsData
+}
 
-	useEffect(() => {
-		const fetchEarnings = async () => {
-			try {
-				const data = await getEarningsData();
-				setEarningsData(data);
-			} catch (error) {
-				console.error('Error fetching earnings data:', error);
-			}
-		};
-
-		fetchEarnings();
-	}, []);
-
-	const chartData = {
-		labels: earningsData.map(d => d.date),
-		datasets: [
-			{
-				label: 'Earnings',
-				data: earningsData.map(d => d.amount),
-				borderColor: 'rgb(75, 192, 192)',
-				tension: 0.1
-			}
-		]
-	};
+export function EarningsChart({ earningsData }: EarningsChartProps) {
+	if (!earningsData) {
+		return (
+			<Card>
+				<CardHeader>
+					<CardTitle>Earnings</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<p>Loading earnings data...</p>
+				</CardContent>
+			</Card>
+		)
+	}
 
 	const options = {
 		responsive: true,
@@ -65,10 +55,36 @@ export function EarningsChart() {
 			},
 			title: {
 				display: true,
-				text: 'Earnings Over Time'
-			}
-		}
+				text: 'Earnings Over Time',
+			},
+		},
 	};
 
-	return <Line options={options} data={chartData} />;
+	const chartData = {
+		labels: earningsData.history.map(d => d.date),
+		datasets: [
+			{
+				label: 'Earnings',
+				data: earningsData.history.map(d => d.amount),
+				backgroundColor: 'rgba(75, 192, 192, 0.6)',
+			},
+		],
+	};
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Earnings</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<div className="h-[300px]">
+					<Bar options={options} data={chartData} />
+				</div>
+				<div className="mt-4">
+					<p>Total Earnings: ${earningsData.total.toFixed(2)}</p>
+					<p>Last Month's Earnings: ${earningsData.lastMonth.toFixed(2)}</p>
+				</div>
+			</CardContent>
+		</Card>
+	);
 }
