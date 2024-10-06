@@ -1,64 +1,88 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getStatistics } from "@/lib/api"
-import { ActivityLog } from "@/types"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Spinner } from "@/components/ui/spinner"
+
+interface Statistics {
+  totalRuns: number;
+  successRate: number;
+  averageEarningsPerRun: number;
+  totalEarnings: number;
+  activityLogs: Array<{ id: number; timestamp: string; action: string }>;
+}
 
 export default function StatisticsPage() {
-  const [statistics, setStatistics] = useState<any>(null)
+  const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStatistics()
-  }, [])
+    const fetchStatistics = async () => {
+      try {
+        const data = await getStatistics();
+        setStatistics(data);
+      } catch (error) {
+        console.error('Error fetching statistics:', error);
+        setError("An error occurred while fetching statistics.");
+      }
+    };
 
-  const fetchStatistics = async () => {
-    try {
-      const data = await getStatistics()
-      setStatistics(data)
-    } catch (error) {
-      console.error("Failed to fetch statistics", error)
-    }
+    fetchStatistics();
+  }, []);
+
+  if (error) {
+    return <div className="flex items-center justify-center h-screen">{error}</div>;
+  }
+
+  if (!statistics) {
+    return <Spinner />;
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold">Statistics</h1>
-      
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-4">Statistics</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Total Runs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{statistics.totalRuns}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Success Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{(statistics.successRate * 100).toFixed(2)}%</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Average Earnings Per Run</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">${statistics.averageEarningsPerRun.toFixed(2)}</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Total Earnings</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">${statistics?.totalEarnings.toFixed(2)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Projects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{statistics?.activeProjects}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Projects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{statistics?.totalProjects}</p>
+            <p className="text-2xl font-bold">${statistics.totalEarnings.toFixed(2)}</p>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
+      <Card className="mt-4">
         <CardHeader>
           <CardTitle>Activity Logs</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
-            {statistics?.activityLogs.map((log: ActivityLog) => (
+            {statistics.activityLogs.map((log) => (
               <li key={log.id} className="text-sm">
                 {new Date(log.timestamp).toLocaleString()}: {log.action}
               </li>

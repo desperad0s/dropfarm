@@ -11,7 +11,7 @@ class User(db.Model):
     settings = db.relationship('UserSettings', uselist=False, back_populates='user')
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -54,10 +54,8 @@ class UserSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     user = db.relationship('User', back_populates='settings')
-    # Add more settings fields as needed
 
     def to_dict(self):
         return {
             'id': self.id,
-            # Add more settings fields as needed
         }

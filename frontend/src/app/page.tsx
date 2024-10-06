@@ -3,89 +3,115 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Play, Pause, TrendingUp, Activity, DollarSign } from "lucide-react"
+import { Play, Pause, Activity, DollarSign, CreditCard, Users } from "lucide-react"
 import { EarningsChart } from "@/components/earnings-chart"
-import { getProjects, startBot, stopBot } from "@/lib/api"
-import { Project } from "@/types"
+import { getDashboardData, startBot, stopBot } from "@/lib/api"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
+import axios from 'axios'  // Import axios
+import { Spinner } from "@/components/ui/spinner"
+
+interface DashboardData {
+  totalEarnings: number;
+  lastMonthEarnings: number;
+  activeProjects: number;
+  runningBots: number;
+}
 
 export default function DashboardPage() {
-  const [projects, setProjects] = useState<Project[]>([])
-  const [totalEarnings, setTotalEarnings] = useState(0)
-  const [activeBots, setActiveBots] = useState(0)
-  const [recentActivities, setRecentActivities] = useState(0)
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    const fetchDashboardData = async () => {
+      try {
+        const data = await getDashboardData();
+        setDashboardData(data);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          setError("Unauthorized. Please log in again.");
+          router.push('/login');
+        } else {
+          setError("An error occurred while fetching data.");
+        }
+      }
+    };
 
-  const fetchDashboardData = async () => {
-    try {
-      const projectsData = await getProjects()
-      setProjects(projectsData)
-      setTotalEarnings(projectsData.reduce((sum: number, project: Project) => sum + project.earnings, 0))
-      setActiveBots(projectsData.filter((project: Project) => project.status === "active").length)
-      // TODO: Fetch recent activities from the API
-      setRecentActivities(24) // Placeholder value
-    } catch (error) {
-      console.error("Failed to fetch dashboard data", error)
-    }
-  }
+    fetchDashboardData();
+  }, [router]);
 
   const handleStartAllBots = async () => {
     try {
-      await Promise.all(projects.map(project => startBot(project.id)))
-      fetchDashboardData()
+      await startBot(0);
+      const data = await getDashboardData();
+      setDashboardData(data);
     } catch (error) {
-      console.error("Failed to start all bots", error)
+      console.error('Error starting all bots:', error);
     }
-  }
+  };
 
   const handleStopAllBots = async () => {
     try {
-      await Promise.all(projects.map(project => stopBot(project.id)))
-      fetchDashboardData()
+      await stopBot(0);
+      const data = await getDashboardData();
+      setDashboardData(data);
     } catch (error) {
-      console.error("Failed to stop all bots", error)
+      console.error('Error stopping all bots:', error);
     }
+  };
+
+  if (error) {
+    return <div className="flex items-center justify-center h-screen">{error}</div>;
+  }
+
+  if (!dashboardData) {
+    return <Spinner />;
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Bots</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeBots}</div>
-            <p className="text-xs text-muted-foreground">+2 from last week</p>
-          </CardContent>
-        </Card>
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalEarnings.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">+$123.45 from last month</p>
+            <div className="text-2xl font-bold">${dashboardData.totalEarnings?.toFixed(2) || 'N/A'}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recent Activities</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Last Month</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{recentActivities}</div>
-            <p className="text-xs text-muted-foreground">In the last 24 hours</p>
+            <div className="text-2xl font-bold">${dashboardData.lastMonthEarnings?.toFixed(2) || 'N/A'}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboardData.activeProjects || 'N/A'}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Running Bots</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboardData.runningBots || 'N/A'}</div>
           </CardContent>
         </Card>
       </div>
-      <div className="flex space-x-4">
+      <div className="flex space-x-4 mt-4">
         <Button onClick={handleStartAllBots}>
           <Play className="mr-2 h-4 w-4" /> Start All Bots
         </Button>
@@ -93,7 +119,7 @@ export default function DashboardPage() {
           <Pause className="mr-2 h-4 w-4" /> Stop All Bots
         </Button>
       </div>
-      <Card className="col-span-4">
+      <Card className="col-span-4 mt-4">
         <CardHeader>
           <CardTitle>Earnings Overview</CardTitle>
           <CardDescription>Your earnings across all projects for the past week</CardDescription>

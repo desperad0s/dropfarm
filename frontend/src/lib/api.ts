@@ -20,6 +20,7 @@ api.interceptors.request.use((config) => {
 
 export const login = async (username: string, password: string) => {
   const response = await api.post('/login', { username, password });
+  localStorage.setItem('token', response.data.access_token);
   return response.data;
 };
 
@@ -28,8 +29,13 @@ export const logout = async () => {
 };
 
 export const getProjects = async () => {
-  const response = await api.get('/projects');
-  return response.data;
+  try {
+    const response = await api.get('/projects');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    return []; // Return an empty array if there's an error
+  }
 };
 
 export const startBot = async (projectId: number) => {
@@ -65,8 +71,13 @@ export const getActivityLogs = async () => {
 };
 
 export const getProjectSettings = async () => {
-  const response = await api.get('/projects/settings');
-  return response.data;
+  try {
+    const response = await api.get('/projects/settings');
+    return response.data || []; // Ensure it returns an array, even if empty
+  } catch (error) {
+    console.error('Error fetching project settings:', error);
+    return []; // Return an empty array in case of error
+  }
 };
 
 export const updateProjectSettings = async (projectId: string, settings: Partial<Project>) => {
@@ -76,7 +87,10 @@ export const updateProjectSettings = async (projectId: string, settings: Partial
 
 export const getStatistics = async () => {
   const response = await api.get('/statistics');
-  return response.data;
+  return {
+    ...response.data,
+    activityLogs: [] // Add this line to provide an empty array if the backend doesn't return activity logs
+  };
 };
 
 export const getSettings = async () => {
@@ -86,6 +100,11 @@ export const getSettings = async () => {
 
 export const updateSettings = async (settings: any) => {
   const response = await api.put('/settings', settings);
+  return response.data;
+};
+
+export const register = async (username: string, password: string) => {
+  const response = await api.post('/register', { username, password });
   return response.data;
 };
 

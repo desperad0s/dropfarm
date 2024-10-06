@@ -1,9 +1,25 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, User, Project, Bot, ActivityLog
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from models import User, Project, Bot, ActivityLog, db
 from datetime import datetime, timedelta
 
 api = Blueprint('api', __name__)
+
+@api.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if User.query.filter_by(username=username).first():
+        return jsonify({"msg": "Username already exists"}), 400
+    
+    new_user = User(username=username)
+    new_user.set_password(password)
+    db.session.add(new_user)
+    db.session.commit()
+    
+    return jsonify({"msg": "User created successfully"}), 201
 
 @api.route('/login', methods=['POST'])
 def login():
@@ -54,7 +70,7 @@ def get_dashboard_data():
     projects = Project.query.filter_by(user_id=user.id).all()
     
     total_earnings = sum(project.earnings for project in projects)
-    active_bots = sum(1 for project in projects if project.bot.status == 'active')
+    active_bots = sum(1 for project in projects if project.bot and project.bot.status == 'active')
     recent_activities = ActivityLog.query.filter(
         ActivityLog.user_id == user.id,
         ActivityLog.timestamp >= datetime.utcnow() - timedelta(hours=24)
@@ -66,30 +82,6 @@ def get_dashboard_data():
         "active_bots": active_bots,
         "recent_activities": recent_activities
     }), 200
-
-@api.route('/earnings', methods=['GET'])
-@jwt_required()
-def get_earnings_data():
-    current_user = get_jwt_identity()
-    user = User.query.filter_by(username=current_user).first()
-    projects = Project.query.filter_by(user_id=user.id).all()
-    
-    # Calculate earnings for the past week
-    end_date = datetime.utcnow()
-    start_date = end_date - timedelta(days=7)
-    
-    earnings_data = []
-    for i in range(7):
-        date = start_date + timedelta(days=i)
-        daily_earnings = sum(
-            project.calculate_daily_earnings(date) for project in projects
-        )
-        earnings_data.append({
-            "date": date.strftime("%Y-%m-%d"),
-            "earnings": daily_earnings
-        })
-    
-    return jsonify(earnings_data), 200
 
 @api.route('/bot/status', methods=['GET'])
 @jwt_required()
@@ -133,12 +125,10 @@ def get_statistics():
     user = User.query.filter_by(username=current_user).first()
     projects = Project.query.filter_by(user_id=user.id).all()
     
-    # Calculate various statistics
     total_earnings = sum(project.earnings for project in projects)
-    active_projects = sum(1 for project in projects if project.bot.status == 'active')
+    active_projects = sum(1 for project in projects if project.bot and project.bot.status == 'active')
     total_projects = len(projects)
     
-    # Get activity logs
     logs = ActivityLog.query.filter_by(user_id=user.id).order_by(ActivityLog.timestamp.desc()).limit(50).all()
     
     return jsonify({
