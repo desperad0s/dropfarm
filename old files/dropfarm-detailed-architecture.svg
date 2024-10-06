@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <style>
+    text { font-family: Arial, sans-serif; font-size: 12px; }
+    .title { font-size: 18px; font-weight: bold; }
+    .subtitle { font-size: 14px; font-style: italic; }
+    .box { fill: #f0f0f0; stroke: #333; stroke-width: 2; }
+    .client { fill: #e6f3ff; }
+    .server { fill: #fff0e6; }
+    .arrow { fill: none; stroke: #666; stroke-width: 2; marker-end: url(#arrowhead); }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+  
+  <text x="400" y="30" text-anchor="middle" class="title">Detailed Dropfarm Architecture</text>
+  <text x="400" y="50" text-anchor="middle" class="subtitle">with Next.js Dashboard and Server Components</text>
+  
+  <!-- Client Side -->
+  <rect x="50" y="80" width="300" height="200" rx="10" class="box client"/>
+  <text x="200" y="100" text-anchor="middle" font-weight="bold">Client Side (Next.js)</text>
+  
+  <rect x="70" y="120" width="120" height="60" rx="5" class="box"/>
+  <text x="130" y="150" text-anchor="middle">React Components</text>
+  <text x="130" y="165" text-anchor="middle">(shadcn/ui)</text>
+  
+  <rect x="210" y="120" width="120" height="60" rx="5" class="box"/>
+  <text x="270" y="150" text-anchor="middle">Next.js Pages</text>
+  <text x="270" y="165" text-anchor="middle">and Routing</text>
+  
+  <rect x="70" y="200" width="120" height="60" rx="5" class="box"/>
+  <text x="130" y="230" text-anchor="middle">State Management</text>
+  <text x="130" y="245" text-anchor="middle">(React Context)</text>
+  
+  <rect x="210" y="200" width="120" height="60" rx="5" class="box"/>
+  <text x="270" y="230" text-anchor="middle">API Requests</text>
+  <text x="270" y="245" text-anchor="middle">(Axios/SWR)</text>
+  
+  <!-- Server Side -->
+  <rect x="450" y="80" width="300" height="480" rx="10" class="box server"/>
+  <text x="600" y="100" text-anchor="middle" font-weight="bold">Server Side</text>
+  
+  <rect x="470" y="120" width="120" height="60" rx="5" class="box"/>
+  <text x="530" y="150" text-anchor="middle">Flask API</text>
+  <text x="530" y="165" text-anchor="middle">Server</text>
+  
+  <rect x="610" y="120" width="120" height="60" rx="5" class="box"/>
+  <text x="670" y="150" text-anchor="middle">Authentication</text>
+  <text x="670" y="165" text-anchor="middle">(JWT)</text>
+  
+  <rect x="470" y="200" width="120" height="60" rx="5" class="box"/>
+  <text x="530" y="230" text-anchor="middle">PostgreSQL</text>
+  <text x="530" y="245" text-anchor="middle">Database</text>
+  
+  <rect x="610" y="200" width="120" height="60" rx="5" class="box"/>
+  <text x="670" y="230" text-anchor="middle">Redis</text>
+  <text x="670" y="245" text-anchor="middle">Task Queue</text>
+  
+  <rect x="470" y="280" width="260" height="60" rx="5" class="box"/>
+  <text x="600" y="310" text-anchor="middle">Celery Task Manager</text>
+  <text x="600" y="325" text-anchor="middle">(Distributed Task Queue)</text>
+  
+  <rect x="470" y="360" width="120" height="60" rx="5" class="box"/>
+  <text x="530" y="390" text-anchor="middle">Bot Worker 1</text>
+  <text x="530" y="405" text-anchor="middle">(Headless Selenium)</text>
+  
+  <rect x="610" y="360" width="120" height="60" rx="5" class="box"/>
+  <text x="670" y="390" text-anchor="middle">Bot Worker 2</text>
+  <text x="670" y="405" text-anchor="middle">(Headless Selenium)</text>
+  
+  <rect x="470" y="440" width="260" height="60" rx="5" class="box"/>
+  <text x="600" y="470" text-anchor="middle">Logging and Monitoring</text>
+  <text x="600" y="485" text-anchor="middle">(ELK Stack or Prometheus/Grafana)</text>
+  
+  <!-- Connections -->
+  <line x1="350" y1="180" x2="460" y2="180" class="arrow"/>
+  <line x1="350" y1="230" x2="460" y2="230" class="arrow"/>
+  <line x1="530" y1="180" x2="530" y2="190" class="arrow"/>
+  <line x1="670" y1="180" x2="670" y2="190" class="arrow"/>
+  <line x1="530" y1="260" x2="530" y2="270" class="arrow"/>
+  <line x1="670" y1="260" x2="670" y2="270" class="arrow"/>
+  <line x1="600" y1="340" x2="600" y2="350" class="arrow"/>
+  <line x1="530" y1="420" x2="530" y2="430" class="arrow"/>
+  <line x1="670" y1="420" x2="670" y2="430" class="arrow"/>
+</svg>

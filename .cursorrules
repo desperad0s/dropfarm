@@ -16,6 +16,11 @@ From previous builds that run on Ubuntu 20.04, I will give you the main project 
 
 This information is just for you to understand how everything worked before, when I copy the single files into the project dir here, you need to analyze and understand their functionality in the old structure and use this information to take the steps below here and rebuild the project with the new scope written down below here:
 
+A mini summary of what the user should be able to do:
+
+The user connects to a website and logs in. The dashboard shows active status of the python script, a start and stop button for the bot, settings for the bots to choose different routines and timings etc. The user also has the ability to select which airdrop project they want to farm. The user also has the ability to see the earnings of the airdrop projects in a nice bento card ddesign and also a graph with close to real-time data because we dont see the bot itneracting in real-time and need reporting and data to know if everything works. The user also has the ability to see the settings of the bots. All this we wasnt to build in a headless environment and this is why we need to change the current approach that is heavily relying on image recognition.
+
+And the tech with how we are gonna achieve that:
 
 ## System Architecture
 
@@ -52,9 +57,9 @@ This information is just for you to understand how everything worked before, whe
 - Implement robust error handling and recovery mechanisms
 
 #### 2.6 Logging and Monitoring
-- Set up centralized logging system (e.g., ELK stack)
-- Implement performance monitoring (e.g., Prometheus/Grafana)
-- Develop alerting system for critical issues
+- Replace all print statements with proper logging using the logging module.
+- Implement structured logging for better searchability and analysis.
+- Suggest appropriate log levels  (DEBUG, INFO, WARNING, ERROR, CRITICAL) and develop warnings for different scenarios.
 
 ## Key Development Areas
 
@@ -103,4 +108,4 @@ This information is just for you to understand how everything worked before, whe
 4. Conduct regular code reviews to maintain code quality
 5. Use feature flags for safe deployment of new features
 
-When providing code suggestions or reviewing existing code, always consider these guidelines and propose improvements that align with this architecture. Focus on creating a scalable, maintainable, and user-friendly automation system. Prioritize security, performance, and user experience in all aspects of the development process.
+When providing code suggestions or reviewing existing code, always consider these guidelines and propose improvements that align with this architecture. Focus on creating a scalable, maintainable, and user-friendly automation system. Prioritize functionality, security, performance, and user experience in all aspects of the development process.
