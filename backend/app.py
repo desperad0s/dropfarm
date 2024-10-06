@@ -1,7 +1,9 @@
 import os
 from flask import Flask
+from flask_migrate import Migrate
 from dotenv import load_dotenv
 from extensions import db, jwt, celery
+from flask_cors import CORS
 
 # Load environment variables
 load_dotenv()
@@ -9,6 +11,7 @@ load_dotenv()
 def create_app():
     # Initialize Flask app
     app = Flask(__name__)
+    CORS(app)
 
     # Load configuration
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
@@ -24,6 +27,9 @@ def create_app():
     
     # Initialize Celery
     celery.conf.update(app.config)
+
+    # Initialize Flask-Migrate
+    Migrate(app, db)
 
     # Import and register blueprints
     from api.routes import api_bp
