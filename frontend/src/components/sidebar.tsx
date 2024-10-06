@@ -1,31 +1,32 @@
 import Link from "next/link"
-import { Home, BarChart2, Settings, Activity, Bell } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { HomeIcon, BarChartIcon, SettingsIcon } from "lucide-react"
+
+const sidebarItems = [
+  { icon: HomeIcon, label: "Home", href: "/" },
+  { icon: BarChartIcon, label: "Statistics", href: "/statistics" },
+  { icon: SettingsIcon, label: "Settings", href: "/settings" },
+]
 
 export function Sidebar() {
   return (
-    <div className="bg-card text-card-foreground w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition duration-200 ease-in-out">
-      <nav>
-        <Link href="/" className="flex items-center space-x-2 px-4 py-2 hover:bg-accent">
-          <Home className="h-5 w-5" />
-          <span>Dashboard</span>
-        </Link>
-        <Link href="/projects" className="flex items-center space-x-2 px-4 py-2 hover:bg-accent">
-          <BarChart2 className="h-5 w-5" />
-          <span>Projects</span>
-        </Link>
-        <Link href="/activity-logs" className="flex items-center space-x-2 px-4 py-2 hover:bg-accent">
-          <Activity className="h-5 w-5" />
-          <span>Activity Logs</span>
-        </Link>
-        <Link href="/notifications" className="flex items-center space-x-2 px-4 py-2 hover:bg-accent">
-          <Bell className="h-5 w-5" />
-          <span>Notifications</span>
-        </Link>
-        <Link href="/profile" className="flex items-center space-x-2 px-4 py-2 hover:bg-accent">
-          <Settings className="h-5 w-5" />
-          <span>Profile</span>
-        </Link>
-      </nav>
-    </div>
+    <aside className="hidden md:flex w-64 flex-col border-r">
+      <div className="p-6">
+        <h2 className="text-2xl font-bold">Dropfarm</h2>
+      </div>
+      <ScrollArea className="flex-1">
+        <nav className="space-y-2 p-4">
+          {sidebarItems.map((item) => (
+            <Link key={item.href} href={item.href} passHref>
+              <Button variant="ghost" className="w-full justify-start">
+                <item.icon className="mr-2 h-4 w-4" />
+                {item.label}
+              </Button>
+            </Link>
+          ))}
+        </nav>
+      </ScrollArea>
+    </aside>
   )
 }

@@ -1,44 +1,74 @@
 "use client"
 
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { useEffect, useState } from 'react'
+import { Line } from 'react-chartjs-2'
+import {
+	Chart as ChartJS,
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	Title,
+	Tooltip,
+	Legend,
+} from 'chart.js'
+import { getEarningsData } from '@/lib/api'
 
-const data = [
-  { name: "Mon", total: Math.floor(Math.random() * 5000) + 1000 },
-  { name: "Tue", total: Math.floor(Math.random() * 5000) + 1000 },
-  { name: "Wed", total: Math.floor(Math.random() * 5000) + 1000 },
-  { name: "Thu", total: Math.floor(Math.random() * 5000) + 1000 },
-  { name: "Fri", total: Math.floor(Math.random() * 5000) + 1000 },
-  { name: "Sat", total: Math.floor(Math.random() * 5000) + 1000 },
-  { name: "Sun", total: Math.floor(Math.random() * 5000) + 1000 },
-]
+ChartJS.register(
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	Title,
+	Tooltip,
+	Legend
+)
+
+interface EarningsData {
+	date: string
+	amount: number
+}
 
 export function EarningsChart() {
-  return (
-    <ResponsiveContainer width="100%" height={350}>
-      <LineChart data={data}>
-        <XAxis
-          dataKey="name"
-          stroke="#888888"
-          fontSize={12}
-          tickLine={false}
-          axisLine={false}
-        />
-        <YAxis
-          stroke="#888888"
-          fontSize={12}
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(value) => `$${value}`}
-        />
-        <Tooltip />
-        <Line
-          type="monotone"
-          dataKey="total"
-          stroke="#adfa1d"
-          strokeWidth={2}
-          dot={{ strokeWidth: 4 }}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  )
+	const [earningsData, setEarningsData] = useState<EarningsData[]>([])
+
+	useEffect(() => {
+		const fetchEarnings = async () => {
+			try {
+				const data = await getEarningsData();
+				setEarningsData(data);
+			} catch (error) {
+				console.error('Error fetching earnings data:', error);
+			}
+		};
+
+		fetchEarnings();
+	}, []);
+
+	const chartData = {
+		labels: earningsData.map(d => d.date),
+		datasets: [
+			{
+				label: 'Earnings',
+				data: earningsData.map(d => d.amount),
+				borderColor: 'rgb(75, 192, 192)',
+				tension: 0.1
+			}
+		]
+	};
+
+	const options = {
+		responsive: true,
+		plugins: {
+			legend: {
+				position: 'top' as const,
+			},
+			title: {
+				display: true,
+				text: 'Earnings Over Time'
+			}
+		}
+	};
+
+	return <Line options={options} data={chartData} />;
 }

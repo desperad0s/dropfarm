@@ -1,16 +1,21 @@
 "use client"
 
-import React from 'react';
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Play, Pause } from "lucide-react"
-import { getProjects, startBot, stopBot } from "@/lib/api"
-import { Project } from "@/types"
+import { useEffect, useState } from 'react'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
+import axios from 'axios'
+
+interface Project {
+  id: number
+  name: string
+  status: string
+  earnings: number
+}
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchProjects()
@@ -18,61 +23,69 @@ export default function ProjectsPage() {
 
   const fetchProjects = async () => {
     try {
-      const projectsData = await getProjects()
-      setProjects(projectsData)
+      const response = await axios.get('/api/projects', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      setProjects(response.data)
     } catch (error) {
-      console.error("Failed to fetch projects", error)
+      console.error('Error fetching projects:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch projects. Please try again.',
+        variant: 'destructive',
+      })
     }
   }
 
-  const handleToggleBot = async (projectId: string, currentStatus: string) => {
+  const handleStartStop = async (projectId: number, action: 'start' | 'stop') => {
     try {
-      if (currentStatus === "active") {
-        await stopBot(projectId)
-      } else {
-        await startBot(projectId)
-      }
-      fetchProjects()
+      await axios.post(`/api/bot/${action}`, { project_id: projectId }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      toast({
+        title: 'Success',
+        description: `Bot ${action}ed successfully`,
+      })
+      fetchProjects()  // Refresh the project list
     } catch (error) {
-      console.error("Failed to toggle bot", error)
+      console.error(`Error ${action}ing bot:`, error)
+      toast({
+        title: 'Error',
+        description: `Failed to ${action} bot. Please try again.`,
+        variant: 'destructive',
+      })
     }
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold">Projects</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project) => (
-          <Card key={project.id}>
-            <CardHeader>
-              <CardTitle>{project.name}</CardTitle>
-              <CardDescription>{project.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Badge variant={project.status === "active" ? "default" : "secondary"}>
-                {project.status}
-              </Badge>
-              <p className="mt-2 font-semibold">Recent Earnings: ${project.earnings.toFixed(2)}</p>
-            </CardContent>
-            <CardFooter>
-              <Button
-                variant={project.status === "active" ? "destructive" : "default"}
-                onClick={() => handleToggleBot(project.id, project.status)}
-              >
-                {project.status === "active" ? (
-                  <>
-                    <Pause className="mr-2 h-4 w-4" /> Stop Bot
-                  </>
+    <div className="container mx-auto py-10">
+      <h1 className="text-2xl font-bold mb-5">Projects</h1>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Earnings</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {projects.map((project) => (
+            <TableRow key={project.id}>
+              <TableCell>{project.name}</TableCell>
+              <TableCell>{project.status}</TableCell>
+              <TableCell>${project.earnings.toFixed(2)}</TableCell>
+              <TableCell>
+                {project.status === 'active' ? (
+                  <Button onClick={() => handleStartStop(project.id, 'stop')}>Stop</Button>
                 ) : (
-                  <>
-                    <Play className="mr-2 h-4 w-4" /> Start Bot
-                  </>
+                  <Button onClick={() => handleStartStop(project.id, 'start')}>Start</Button>
                 )}
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   )
 }

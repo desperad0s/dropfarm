@@ -7,6 +7,7 @@ import { Play, Pause, TrendingUp, Activity, DollarSign } from "lucide-react"
 import { EarningsChart } from "@/components/earnings-chart"
 import { getProjects, startBot, stopBot } from "@/lib/api"
 import { Project } from "@/types"
+import Link from "next/link"
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])
@@ -22,8 +23,8 @@ export default function DashboardPage() {
     try {
       const projectsData = await getProjects()
       setProjects(projectsData)
-      setTotalEarnings(projectsData.reduce((sum, project) => sum + project.earnings, 0))
-      setActiveBots(projectsData.filter(project => project.status === "active").length)
+      setTotalEarnings(projectsData.reduce((sum: number, project: Project) => sum + project.earnings, 0))
+      setActiveBots(projectsData.filter((project: Project) => project.status === "active").length)
       // TODO: Fetch recent activities from the API
       setRecentActivities(24) // Placeholder value
     } catch (error) {

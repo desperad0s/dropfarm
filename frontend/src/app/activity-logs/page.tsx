@@ -1,57 +1,54 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { getActivityLogs } from "@/lib/api"
-import { ActivityLog } from "@/types"
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { getActivityLogs } from '@/lib/api';
 
-export default function ActivityLogsPage() {
-  const [logs, setLogs] = useState<ActivityLog[]>([])
+interface Log {
+  id: number;
+  timestamp: string;
+  message: string;
+  level: string;
+}
+
+export default function ActivityLogs() {
+  const [logs, setLogs] = useState<Log[]>([]);
 
   useEffect(() => {
-    fetchActivityLogs()
-  }, [])
+    const fetchLogs = async () => {
+      try {
+        const fetchedLogs = await getActivityLogs();
+        setLogs(fetchedLogs);
+      } catch (error) {
+        console.error('Failed to fetch activity logs:', error);
+      }
+    };
 
-  const fetchActivityLogs = async () => {
-    try {
-      const logsData = await getActivityLogs()
-      setLogs(logsData)
-    } catch (error) {
-      console.error("Failed to fetch activity logs", error)
-    }
-  }
+    fetchLogs();
+    // Set up an interval to fetch logs periodically
+    const intervalId = setInterval(fetchLogs, 30000);
+
+    // Clean up the interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold">Activity Logs</h1>
-      <Card>
+    <div className="flex min-h-screen flex-col items-center justify-center p-24">
+      <Card className="w-full max-w-4xl">
         <CardHeader>
-          <CardTitle>Recent Bot Activities</CardTitle>
+          <CardTitle>Activity Logs</CardTitle>
+          <CardDescription>Recent bot activities and events</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Details</TableHead>
-                <TableHead>Timestamp</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.map((log, index) => (
-                <TableRow key={index}>
-                  <TableCell>{log.project_id}</TableCell>
-                  <TableCell>{log.action}</TableCell>
-                  <TableCell>{log.details}</TableCell>
-                  <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <ul className="space-y-2">
+            {logs.map((log) => (
+              <li key={log.id} className={`p-2 rounded ${log.level === 'ERROR' ? 'bg-red-100' : 'bg-gray-100'}`}>
+                <span className="font-bold">{new Date(log.timestamp).toLocaleString()}</span> - {log.message}
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
