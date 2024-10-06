@@ -1,10 +1,15 @@
 # 🌱 Dropfarm: Automated Airdrop Farming System
 
+
 ## 📌 Overview
+
 
 Dropfarm is a scalable, headless automation system for web interactions, designed to farm airdrop tokens from new crypto projects. It interacts with Telegram chat bots and web applications to streamline the airdrop participation process.
 
+
+
 ## 🚀 Features
+
 
 - 🤖 Headless automation for web interactions
 - 💬 Integration with Telegram chat bots
@@ -13,7 +18,10 @@ Dropfarm is a scalable, headless automation system for web interactions, designe
 - 📈 Real-time data visualization of earnings
 - 🔧 Scalable architecture using Flask, Celery, and Redis
 
+
+
 ## 🛠 Tech Stack
+
 
 | Component | Technology |
 |-----------|------------|
@@ -23,7 +31,10 @@ Dropfarm is a scalable, headless automation system for web interactions, designe
 | Message Broker | Redis |
 | Automation | Selenium WebDriver |
 
+
+
 ## 📁 Project Structure
+
 
 dropfarm2_full-app/
 ├── backend/
@@ -41,7 +52,10 @@ dropfarm2_full-app/
 ├── docker/
 └── scripts/
 
+
+
 ## 🚀 Setup and Installation
+
 
 ### Prerequisites
 
@@ -49,6 +63,8 @@ dropfarm2_full-app/
 - Node.js 14+
 - PostgreSQL
 - Redis
+
+
 
 ### Backend Setup
 
@@ -67,7 +83,10 @@ dropfarm2_full-app/
 
 3. Configure environment variables in `.env`
 
+
+
 ### Frontend Setup
+
 
 1. Install dependencies:
    ```
@@ -77,7 +96,10 @@ dropfarm2_full-app/
 
 2. Configure environment in `.env.local`
 
+
+
 ## 🏃‍♂️ Running the Application
+
 
 1. Start the backend:
    ```
@@ -90,14 +112,20 @@ dropfarm2_full-app/
    npm run dev
    ```
 
+
 ## 🧪 Testing
+
+
 
 | Component | Command |
 |-----------|---------|
 | Backend   | `pytest` |
 | Frontend  | `npm test` |
 
+
+
 ## 📘 Documentation
+
 
 For detailed information on deployment, contributing, and licensing, please refer to:
 
@@ -105,14 +133,25 @@ For detailed information on deployment, contributing, and licensing, please refe
 - 👥 [CONTRIBUTING.md](./CONTRIBUTING.md)
 - ⚖️ [LICENSE.md](./LICENSE.md)
 
+
+
 ## 🙏 Acknowledgments
+
 
 Special thanks to all contributors and the open-source community for their invaluable tools and libraries.
 
+
+
 ## 📬 Contact
+
+
 
 For questions or support, please [open an issue](https://github.com/desperad0s/dropfarm/issues) on our GitHub repository.
 
+
+
 ## 📜 License
+
+
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
