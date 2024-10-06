@@ -1,15 +1,11 @@
-from celery import Celery
+from extensions import celery, db
 from bot.routines.goats import GOATSRoutine
 from models.models import BotActivity, User, AirdropProject
-from app import db
 import logging
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Initialize Celery app
-celery = Celery('tasks', broker='redis://localhost:6379/0')
 
 @celery.task
 def run_goats_routine(user_id, project_id, settings):

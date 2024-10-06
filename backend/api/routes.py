@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity
-from models.models import User, BotConfig, AirdropProject
-from app import db, celery
+from models.models import User, BotConfig, AirdropProject, BotActivity
+from extensions import db
 from celery_tasks.tasks import run_goats_routine
 
 api_bp = Blueprint('api', __name__)
@@ -77,3 +77,16 @@ def bot_config():
         db.session.commit()
         
         return jsonify({"msg": "Bot configuration updated"}), 200
+
+@api_bp.route('/bot/activity', methods=['GET'])
+@jwt_required()
+def get_bot_activity():
+    current_user = get_jwt_identity()
+    user = User.query.filter_by(username=current_user).first()
+    activities = BotActivity.query.filter_by(user_id=user.id).order_by(BotActivity.timestamp.desc()).limit(50).all()
+    return jsonify([{
+        "project_id": a.project_id,
+        "action": a.action,
+        "details": a.details,
+        "timestamp": a.timestamp.isoformat()
+    } for a in activities]), 200
