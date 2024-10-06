@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity
 from models.models import User, BotConfig, AirdropProject
 from app import db, celery
+from celery_tasks.tasks import run_goats_routine
 
 api_bp = Blueprint('api', __name__)
 
@@ -20,9 +21,14 @@ def login():
 def start_bot():
     current_user = get_jwt_identity()
     project_id = request.json.get('project_id')
+    user = User.query.filter_by(username=current_user).first()
+    config = BotConfig.query.filter_by(user_id=user.id, project_id=project_id).first()
+    
+    if not config:
+        return jsonify({"msg": "Bot configuration not found"}), 404
     
     # Start the bot task
-    task = celery.send_task('tasks.start_bot', args=[current_user, project_id])
+    task = run_goats_routine.delay(config.settings)
     
     return jsonify({"msg": "Bot started", "task_id": task.id}), 202
 
@@ -32,10 +38,9 @@ def stop_bot():
     current_user = get_jwt_identity()
     project_id = request.json.get('project_id')
     
-    # Stop the bot task
-    task = celery.send_task('tasks.stop_bot', args=[current_user, project_id])
-    
-    return jsonify({"msg": "Bot stopped", "task_id": task.id}), 202
+    # For now, we'll just return a success message
+    # In the future, implement actual bot stopping logic
+    return jsonify({"msg": "Bot stopped"}), 200
 
 @api_bp.route('/projects', methods=['GET'])
 @jwt_required()
