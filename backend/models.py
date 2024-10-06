@@ -1,10 +1,9 @@
 import sqlite3
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from extensions import db
 import logging
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
-db = SQLAlchemy()
 logger = logging.getLogger(__name__)
 
 def dict_factory(cursor, row):
@@ -16,97 +15,45 @@ def get_db_connection():
     return conn
 
 def create_tables():
-    conn = get_db_connection()
-    c = conn.cursor()
-
-    # Users table
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  username TEXT UNIQUE NOT NULL,
-                  password_hash TEXT NOT NULL,
-                  email TEXT UNIQUE,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  total_tasks_completed INTEGER DEFAULT 0,
-                  total_rewards_earned REAL DEFAULT 0.0,
-                  current_streak INTEGER DEFAULT 0)''')
-
-    # Bot Settings table
-    c.execute('''CREATE TABLE IF NOT EXISTS bot_settings
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  user_id INTEGER UNIQUE,
-                  is_active BOOLEAN DEFAULT FALSE,
-                  run_interval INTEGER DEFAULT 60,
-                  max_daily_runs INTEGER DEFAULT 5,
-                  FOREIGN KEY (user_id) REFERENCES users (id))''')
-
-    # Bot Activities table
-    c.execute('''CREATE TABLE IF NOT EXISTS bot_activities
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  user_id INTEGER,
-                  bot_type TEXT NOT NULL,
-                  action TEXT NOT NULL,
-                  result TEXT NOT NULL,
-                  details TEXT,
-                  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  FOREIGN KEY (user_id) REFERENCES users (id))''')
-
-    # Projects table
-    c.execute('''CREATE TABLE IF NOT EXISTS projects
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  user_id INTEGER,
-                  name TEXT NOT NULL,
-                  enabled BOOLEAN DEFAULT TRUE,
-                  interval INTEGER DEFAULT 60,
-                  max_daily_runs INTEGER DEFAULT 5,
-                  FOREIGN KEY (user_id) REFERENCES users (id))''')
-
-    conn.commit()
-    conn.close()
+    db.create_all()
     logger.info("Database tables created or already exist")
 
 def create_default_user():
-    from flask import current_app
-    with current_app.app_context():
-        default_username = "desperad0s"
-        default_password = "hohoho"
-        default_email = "desperad0s@example.com"
+    default_username = "desperad0s"
+    default_password = "password123"
+    default_email = "desperad0s@example.com"
 
-        user = User.get_by_username(default_username)
-        if not user:
-            hashed_password = generate_password_hash(default_password)
-            User.create(default_username, hashed_password, default_email)
-            logger.info(f"Default user '{default_username}' created")
-        else:
-            logger.info(f"Default user '{default_username}' already exists")
+    logger.debug(f"Attempting to get user with username: {default_username}")
+    user = User.get_by_username(default_username)
+
+    if user is None:
+        logger.info(f"Creating default user: {default_username}")
+        User.create(default_username, default_password, default_email)
+        logger.info("Default user created successfully")
+    else:
+        logger.info("Default user already exists")
 
 class User(db.Model):
-    __tablename__ = 'users'
+    __tablename__ = 'users'  # Add this line to specify the table name
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(128))
     email = db.Column(db.String(120), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     total_tasks_completed = db.Column(db.Integer, default=0)
     total_rewards_earned = db.Column(db.Float, default=0.0)
     current_streak = db.Column(db.Integer, default=0)
 
     @classmethod
-    def get_by_username(cls, username):
-        logger.debug(f"Attempting to get user with username: {username}")
-        user = cls.query.filter_by(username=username).first()
-        if user:
-            logger.info(f"User found: {user.username}")
-            logger.debug(f"User details: {user.to_dict()}")
-        else:
-            logger.warning(f"User not found: {username}")
-        return user
+    def create(cls, username, password, email):
+        hashed_password = generate_password_hash(password)
+        user = cls(username=username, password_hash=hashed_password, email=email)
+        db.session.add(user)
+        db.session.commit()
+        return user.id
 
     @classmethod
-    def create(cls, username, password_hash, email):
-        new_user = cls(username=username, password_hash=password_hash, email=email)
-        db.session.add(new_user)
-        db.session.commit()
-        return new_user.id
+    def get_by_username(cls, username):
+        return cls.query.filter_by(username=username).first()
 
     def to_dict(self):
         return {
@@ -221,5 +168,19 @@ class EarningsEntry(db.Model):
             'amount': self.amount
         }
 
-# Call these functions to set up the database
-create_tables()
+class BotStatistics(db.Model):
+    __tablename__ = 'bot_statistics'  # Add this line to specify the table name
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    tasks_completed = db.Column(db.Integer, default=0)
+    rewards_earned = db.Column(db.Float, default=0)
+    streak = db.Column(db.Integer, default=0)
+    total_runtime = db.Column(db.Float, default=0)
+    errors_encountered = db.Column(db.Integer, default=0)
+
+    def update_stats(self, new_stats):
+        self.tasks_completed = new_stats['tasks_completed']
+        self.rewards_earned = new_stats['rewards_earned']
+        self.streak = new_stats['streak']
+        self.total_runtime = new_stats['total_runtime']
+        self.errors_encountered = new_stats['errors_encountered']

@@ -16,6 +16,7 @@
     "@radix-ui/react-select": "^2.1.2",
     "@radix-ui/react-switch": "^1.1.1",
     "@radix-ui/react-tabs": "^1.1.1",
+    "@radix-ui/react-toast": "^1.2.2",
     "@shadcn/ui": "^0.0.4",
     "@types/socket.io-client": "^1.4.36",
     "axios": "^1.7.7",

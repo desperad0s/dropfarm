@@ -1,0 +1,19 @@
+{
+    "telegram_url": "https://web.telegram.org/",
+    "page_load_timeout": 20,
+    "element_timeout": 10,
+    "search_box_selector": "input[placeholder='Search']",
+    "goats_chat_name": "GOATS",
+    "goats_chat_xpath": "//span[contains(text(), 'GOATS')]",
+    "launch_button_xpath": "//button[contains(text(), 'Let's Go')]",
+    "web_app_container_xpath": "//div[contains(@class, 'web-app-container')]",
+    "missions_tab_xpath": "//button[contains(text(), 'Missions')]",
+    "do_button_xpath": "//button[contains(text(), 'Do')]",
+    "home_tab_xpath": "//button[contains(text(), 'Home')]",
+    "ad_duration": 18,
+    "cooldown_duration": 57,
+    "tab_switch_delay": 3,
+    "reward_per_task": 1,
+    "max_errors": 5,
+    "error_cooldown": 60
+}
