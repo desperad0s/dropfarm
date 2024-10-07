@@ -10,6 +10,8 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 import time
 import os
 import logging
+import json
+from selenium.webdriver.common.action_chains import ActionChains
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -104,3 +106,44 @@ def stop_bot():
 @celery_app.task(name='backend.tasks.get_bot_status')
 def get_bot_status():
     return {'status': bot_status, 'active_routines': list(active_routines)}
+
+@celery_app.task(name='backend.tasks.playback_routine')
+def playback_routine(routine_name):
+    global driver, bot_status, active_routines
+    if not driver:
+        return {'status': 'error', 'message': 'Bot not initialized'}
+    
+    try:
+        with open(f'{routine_name}_actions.json', 'r') as f:
+            actions = json.load(f)
+        
+        for action in actions:
+            if action['type'] == 'click':
+                try:
+                    element = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, action['selector']))
+                    )
+                    ActionChains(driver).move_to_element(element).click().perform()
+                except Exception as e:
+                    logger.warning(f"Failed to click element: {action['selector']}. Error: {str(e)}")
+                    # Fallback to JavaScript click
+                    driver.execute_script("arguments[0].click();", element)
+            elif action['type'] == 'input':
+                try:
+                    element = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, action['selector']))
+                    )
+                    element.clear()
+                    element.send_keys(action['value'])
+                except Exception as e:
+                    logger.warning(f"Failed to input text: {action['selector']}. Error: {str(e)}")
+            elif action['type'] == 'mousemove':
+                ActionChains(driver).move_by_offset(action['x'], action['y']).perform()
+            time.sleep(0.5)  # Add a small delay between actions
+        
+        active_routines.add(routine_name)
+        bot_status = 'running'
+        return {'status': 'success', 'message': f'{routine_name} routine completed'}
+    except Exception as e:
+        logger.error(f"Error in {routine_name} routine: {str(e)}")
+        return {'status': 'error', 'message': str(e)}

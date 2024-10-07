@@ -1,23 +1,59 @@
-import type { Metadata } from "next"
+'use client'
+
+import { useState, useEffect } from "react"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ModeToggle } from "@/components/mode-toggle"
-import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { UserAvatar } from "@/components/Avatar"
+import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { logout, api } from "@/lib/api"
 
 const inter = Inter({ subsets: ["latin"] })
-
-export const metadata: Metadata = {
-  title: "Dropfarm Dashboard",
-  description: "Monitor and control your Dropfarm bots",
-}
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [username, setUsername] = useState("")
+  const router = useRouter()
+
+  useEffect(() => {
+    checkLoginStatus()
+  }, [])
+
+  const checkLoginStatus = async () => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      try {
+        const response = await api.get('/verify_token')
+        setIsLoggedIn(true)
+        setUsername(response.data.user)
+      } catch (error) {
+        console.error('Token verification failed:', error)
+        handleLogout()
+      }
+    } else {
+      setIsLoggedIn(false)
+      router.push('/login')
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      setIsLoggedIn(false)
+      setUsername("")
+      router.push('/logout')
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
+
   return (
     <html lang="en">
       <body className={inter.className}>
@@ -27,28 +63,29 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="min-h-screen flex flex-col">
-            <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="container mx-auto px-4 flex justify-between items-center h-16">
-                <Link href="/" className="font-bold text-2xl">
-                  Dropfarm
+          <div className="flex flex-col min-h-screen">
+            <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <div className="container flex h-14 items-center">
+                <Link href="/" className="mr-6 flex items-center space-x-2">
+                  <span className="text-2xl font-bold">Dropfarm</span>
                 </Link>
-                <nav className="flex space-x-4">
-                  <Link href="/" className="text-sm font-medium">Dashboard</Link>
-                  <Link href="/projects" className="text-sm font-medium">Projects</Link>
-                  <Link href="/settings" className="text-sm font-medium">Settings</Link>
+                <nav className="flex items-center space-x-6 text-sm font-medium flex-1 justify-center">
+                  <Link href="/">Dashboard</Link>
+                  <Link href="/projects">Projects</Link>
+                  <Link href="/settings">Settings</Link>
                 </nav>
                 <div className="flex items-center space-x-4">
+                  {isLoggedIn && <UserAvatar username={username} />}
                   <ModeToggle />
-                  <Button variant="outline" asChild>
-                    <Link href="/logout">Logout</Link>
-                  </Button>
+                  {isLoggedIn ? (
+                    <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => router.push('/login')}>Login</Button>
+                  )}
                 </div>
               </div>
             </header>
-            <main className="flex-grow pt-16 container mx-auto px-4">
-              {children}
-            </main>
+            <main className="flex-1 container py-8">{children}</main>
           </div>
         </ThemeProvider>
       </body>

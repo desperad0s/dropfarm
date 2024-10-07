@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { login } from '@/lib/api'
 import { useToast } from "@/hooks/use-toast"
 
 export default function LoginForm() {
@@ -20,10 +20,12 @@ export default function LoginForm() {
     e.preventDefault();
     setLoginError("");
     try {
-      const response = await api.post('/login', { username, password });
-      localStorage.setItem('token', response.data.access_token);
-      localStorage.setItem('refreshToken', response.data.refresh_token);
-      router.push('/');
+      const data = await login(username, password);
+      if (data.access_token) {
+        router.push('/');
+      } else {
+        throw new Error('Login failed: No access token received');
+      }
     } catch (error) {
       console.error('Login failed:', error);
       setLoginError("Login failed. Please check your credentials.");

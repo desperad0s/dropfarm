@@ -1,80 +1,95 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, CheckCircle2 } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { changePassword } from "@/lib/api"
+import { api } from '@/lib/api'
+import { useToast } from "@/hooks/use-toast"
 
 export default function ProfilePage() {
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
+  const { toast } = useToast()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setStatus(null)
-    if (password !== confirmPassword) {
-      setStatus({ type: "error", message: "Passwords do not match" })
-      return
-    }
+  useEffect(() => {
+    fetchUserProfile()
+  }, [])
+
+  const fetchUserProfile = async () => {
     try {
-      await changePassword(password)
-      setStatus({ type: "success", message: "Password updated successfully" })
-    } catch (err) {
-      setStatus({ type: "error", message: "Failed to update password" })
+      const response = await api.get('/user/profile')
+      setUser(response.data)
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch user profile",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
+  }
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await api.put('/user/profile', user)
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      })
+    } catch (error) {
+      console.error('Failed to update profile:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (isLoading) {
+    return <div>Loading...</div>
   }
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">User Profile</h1>
-      <Card className="max-w-2xl mx-auto">
+      <Card>
         <CardHeader>
-          <CardTitle>Change Password</CardTitle>
-          <CardDescription>Update your account password</CardDescription>
+          <CardTitle>User Profile</CardTitle>
+          <CardDescription>Update your account settings</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+          <form onSubmit={handleUpdateProfile}>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={user.username}
+                  onChange={(e) => setUser({ ...user, username: e.target.value })}
+                  disabled
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={user.email}
+                  onChange={(e) => setUser({ ...user, email: e.target.value })}
+                />
+              </div>
+              {/* Add more fields as needed */}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit">Update Password</Button>
+            <Button type="submit" className="mt-4">Update Profile</Button>
           </form>
         </CardContent>
-        <CardFooter>
-          {status && (
-            <Alert variant={status.type === "success" ? "default" : "destructive"}>
-              {status.type === "success" ? (
-                <CheckCircle2 className="h-4 w-4" />
-              ) : (
-                <AlertCircle className="h-4 w-4" />
-              )}
-              <AlertTitle>{status.type === "success" ? "Success" : "Error"}</AlertTitle>
-              <AlertDescription>{status.message}</AlertDescription>
-            </Alert>
-          )}
-        </CardFooter>
       </Card>
     </div>
   )

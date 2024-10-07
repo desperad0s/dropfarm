@@ -36,3 +36,6 @@ __pycache__/
 
 # Database
 *.sqlite
+
+# Chrome user data  
+backend/chrome_user_data/

@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { api, logout } from '@/lib/api'
+import { api, logout, startRecording, stopRecording, getRecordedRoutines, deleteRecordedRoutine } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { Input } from "@/components/ui/input"
 
 export default function Home() {
   const [dashboardData, setDashboardData] = useState<any>(null)
@@ -16,6 +17,9 @@ export default function Home() {
   const [activeRoutines, setActiveRoutines] = useState<string[]>([])
   const router = useRouter()
   const { toast } = useToast()
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingRoutineName, setRecordingRoutineName] = useState('')
+  const [recordedRoutines, setRecordedRoutines] = useState<string[]>([])
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -26,6 +30,10 @@ export default function Home() {
       const interval = setInterval(checkBotStatus, 5000);
       return () => clearInterval(interval);
     }
+  }, [])
+
+  useEffect(() => {
+    fetchRecordedRoutines()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -39,6 +47,16 @@ export default function Home() {
         description: "Failed to fetch dashboard data",
         variant: "destructive",
       })
+    }
+  }
+
+  const fetchRecordedRoutines = async () => {
+    try {
+      const routines = await getRecordedRoutines()
+      setRecordedRoutines(routines)
+    } catch (error) {
+      console.error('Failed to fetch recorded routines:', error)
+      showNotification("Error", "Failed to fetch recorded routines", "destructive")
     }
   }
 
@@ -125,12 +143,65 @@ export default function Home() {
     }
   };
 
+  const startRecordedRoutine = async (routine: string) => {
+    setIsLoading(true)
+    showNotification("Recorded Routine", `Starting recorded routine: ${routine}...`)
+    try {
+      const response = await api.post(`/bot/start_recorded/${routine}`)
+      showNotification("Recorded Routine", `${routine} routine completed`)
+      await checkBotStatus()
+    } catch (error) {
+      console.error(`Failed to start recorded routine ${routine}:`, error)
+      showNotification("Error", `Failed to start recorded routine ${routine}`, "destructive")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleStartRecording = async () => {
+    try {
+      const response = await startRecording('https://web.telegram.org/k/')  // Updated URL
+      setIsRecording(true)
+      showNotification("Recording", response.message)
+    } catch (error) {
+      console.error('Failed to start recording:', error)
+      showNotification("Error", "Failed to start recording", "destructive")
+    }
+  }
+
+  const handleStopRecording = async () => {
+    if (!recordingRoutineName) {
+      showNotification("Error", "Please enter a routine name", "destructive")
+      return
+    }
+    try {
+      const response = await stopRecording(recordingRoutineName)
+      setIsRecording(false)
+      setRecordingRoutineName('')
+      showNotification("Recording", response.message)
+    } catch (error) {
+      console.error('Failed to stop recording:', error)
+      showNotification("Error", "Failed to stop recording", "destructive")
+    }
+  }
+
+  const handleDeleteRoutine = async (routineName: string) => {
+    try {
+      await deleteRecordedRoutine(routineName)
+      showNotification("Success", `Routine ${routineName} deleted successfully`)
+      fetchRecordedRoutines()
+    } catch (error) {
+      console.error('Failed to delete routine:', error)
+      showNotification("Error", `Failed to delete routine ${routineName}`, "destructive")
+    }
+  }
+
   if (!dashboardData) {
     return <div>Loading...</div>
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center space-y-6 p-24">
+    <main className="flex min-h-screen flex-col items-center space-y-6">
       {/* Bot Control Card */}
       <Card className="w-full">
         <CardHeader>
@@ -245,6 +316,90 @@ export default function Home() {
               <li key={index}>{activity.action} - {activity.result}</li>
             ))}
           </ul>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-col space-y-2">
+        <h3 className="text-lg font-semibold">Recorded Routines:</h3>
+        <Button 
+          onClick={() => startRecordedRoutine('goats')} 
+          disabled={isLoading || botStatus === 'stopped'}
+        >
+          Start Recorded GOATS Routine
+        </Button>
+        <Button 
+          onClick={() => startRecordedRoutine('onewin')} 
+          disabled={isLoading || botStatus === 'stopped'}
+        >
+          Start Recorded 1Win Routine
+        </Button>
+        <Button 
+          onClick={() => startRecordedRoutine('px')} 
+          disabled={isLoading || botStatus === 'stopped'}
+        >
+          Start Recorded PX Routine
+        </Button>
+      </div>
+
+      {/* Recording Controls */}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Record New Routine</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col space-y-4">
+            {!isRecording ? (
+              <Button onClick={handleStartRecording} disabled={isLoading}>
+                Start Recording
+              </Button>
+            ) : (
+              <>
+                <Input
+                  placeholder="Enter routine name"
+                  value={recordingRoutineName}
+                  onChange={(e) => setRecordingRoutineName(e.target.value)}
+                />
+                <Button onClick={handleStopRecording} disabled={isLoading}>
+                  Stop Recording and Save
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recorded Routines */}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Recorded Routines</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recordedRoutines.length > 0 ? (
+            <ul className="space-y-2">
+              {recordedRoutines.map((routine) => (
+                <li key={routine} className="flex justify-between items-center">
+                  <span>{routine}</span>
+                  <div>
+                    <Button 
+                      onClick={() => startRecordedRoutine(routine)} 
+                      disabled={isLoading || botStatus === 'stopped'}
+                      className="mr-2"
+                    >
+                      Start
+                    </Button>
+                    <Button 
+                      onClick={() => handleDeleteRoutine(routine)}
+                      variant="destructive"
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No recorded routines available.</p>
+          )}
         </CardContent>
       </Card>
 
