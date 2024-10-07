@@ -1,12 +1,13 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt, create_refresh_token, jwt_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import User, BotSettings, BotActivity, Project, BotStatistics
 from extensions import db
-from celery_tasks.tasks import run_goats_bot, update_statistics, start_bot_task, stop_bot_task
 import random
 from datetime import datetime, timedelta
 import logging
+from backend.celery_app import celery_app
+from backend.tasks import initialize_bot, start_routine, stop_routine, stop_bot, get_bot_status
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -31,6 +32,17 @@ def generate_earnings_data():
 
 # Generate initial data
 generate_earnings_data()
+
+def log_activity(user_id, action, result, bot_type=None, details=None):
+    new_activity = BotActivity(
+        user_id=user_id,
+        bot_type=bot_type,
+        action=action,
+        result=result,
+        details=details
+    )
+    db.session.add(new_activity)
+    db.session.commit()
 
 def init_routes(app):
     bot_routes = Blueprint('bot_routes', __name__)
@@ -67,7 +79,7 @@ def init_routes(app):
         username = data.get('username')
         password = data.get('password')
 
-        logger.debug(f"Login attempt for username: {username}")
+        logger.info(f"Login attempt for username: {username}")
 
         if not username or not password:
             logger.warning("Login attempt with missing username or password")
@@ -82,10 +94,18 @@ def init_routes(app):
 
             logger.info(f"Login successful for user: {username}")
             access_token = create_access_token(identity=username)
-            return jsonify(access_token=access_token), 200
+            refresh_token = create_refresh_token(identity=username)
+            return jsonify(access_token=access_token, refresh_token=refresh_token), 200
         except Exception as e:
             logger.error(f"Error during login process: {str(e)}")
             return jsonify({"msg": "An error occurred during login"}), 500
+
+    @bot_routes.route('/refresh', methods=['POST'])
+    @jwt_required(refresh=True)
+    def refresh():
+        current_user = get_jwt_identity()
+        new_access_token = create_access_token(identity=current_user)
+        return jsonify(access_token=new_access_token), 200
 
     @bot_routes.route('/dashboard', methods=['GET'])
     @jwt_required()
@@ -124,32 +144,84 @@ def init_routes(app):
         
         return jsonify(dashboard_data), 200
 
-    @bot_routes.route('/bot/start', methods=['POST'])
+    @bot_routes.route('/bot/initialize', methods=['POST'])
     @jwt_required()
-    def start_bot():
+    def initialize_bot_route():
         current_user = get_jwt_identity()
         user = User.query.filter_by(username=current_user).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
-        task = start_bot_task.delay()
-        return jsonify({"message": "Bot started", "task_id": str(task.id)}), 202
+        
+        log_activity(user.id, "Bot Initialization", "Started", bot_type="Main")
+        task = initialize_bot.delay()
+        result = task.get()  # Wait for the task to complete
+        log_activity(user.id, "Bot Initialization", result['message'], bot_type="Main")
+        
+        return jsonify(result), 200 if result['status'] == 'success' else 500
+
+    @bot_routes.route('/bot/start/<routine>', methods=['POST'])
+    @jwt_required()
+    def start_routine_route(routine):
+        current_user = get_jwt_identity()
+        user = User.query.filter_by(username=current_user).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        log_activity(user.id, f"Start Routine", f"Starting {routine}")
+        task = start_routine.delay(routine)
+        result = task.get()  # Wait for the task to complete
+        log_activity(user.id, f"Start Routine", result['message'])
+        
+        return jsonify(result), 200 if result['status'] == 'success' else 500
+
+    @bot_routes.route('/bot/stop/<routine>', methods=['POST'])
+    @jwt_required()
+    def stop_routine_route(routine):
+        current_user = get_jwt_identity()
+        user = User.query.filter_by(username=current_user).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        log_activity(user.id, f"Stop Routine", f"Stopping {routine}")
+        task = stop_routine.delay(routine)
+        result = task.get()  # Wait for the task to complete
+        log_activity(user.id, f"Stop Routine", result['message'])
+        
+        return jsonify(result), 200 if result['status'] == 'success' else 500
 
     @bot_routes.route('/bot/stop', methods=['POST'])
     @jwt_required()
-    def stop_bot():
+    def stop_bot_route():
         current_user = get_jwt_identity()
         user = User.query.filter_by(username=current_user).first()
         if not user:
             return jsonify({"error": "User not found"}), 404
-        task = stop_bot_task.delay()
-        return jsonify({"message": "Bot stop requested", "task_id": str(task.id)}), 202
+        
+        log_activity(user.id, "Stop Bot", "Stopping bot")
+        task = stop_bot.delay()
+        result = task.get()  # Wait for the task to complete
+        log_activity(user.id, "Stop Bot", result['message'])
+        
+        return jsonify(result), 200 if result['status'] == 'success' else 500
+
+    @bot_routes.route('/bot/status', methods=['GET'])
+    @jwt_required()
+    def get_bot_status_route():
+        current_user = get_jwt_identity()
+        user = User.query.filter_by(username=current_user).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        task = get_bot_status.delay()
+        result = task.get()  # Wait for the task to complete
+        return jsonify(result), 200
 
     @bot_routes.route('/statistics', methods=['GET'])
     @jwt_required()
     def get_statistics():
         current_user = get_jwt_identity()
         user = User.query.filter_by(username=current_user).first()
-        stats = update_statistics.delay(user.id).get()
+        stats = tasks.update_statistics.delay(user.id).get()
         activities = BotActivity.get_recent_activities(user.id, 5)
         stats['activityLogs'] = activities
         return jsonify(stats)
@@ -270,3 +342,37 @@ def init_routes(app):
         return jsonify({"msg": "Token is valid", "user": current_user}), 200
 
     app.register_blueprint(bot_routes, url_prefix='/api')
+
+    @app.route('/api/auth/register', methods=['POST'])
+    def register():
+        data = request.get_json()
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
+
+        logger.info(f"Registration attempt for username: {username}, email: {email}")
+
+        if not username or not email or not password:
+            logger.warning("Registration attempt with missing data")
+            return jsonify({'message': 'Missing required fields'}), 400
+
+        if User.query.filter_by(username=username).first():
+            logger.warning(f"Registration failed: Username {username} already exists")
+            return jsonify({'message': 'Username already exists'}), 400
+
+        if User.query.filter_by(email=email).first():
+            logger.warning(f"Registration failed: Email {email} already exists")
+            return jsonify({'message': 'Email already exists'}), 400
+
+        try:
+            hashed_password = generate_password_hash(password)
+            new_user = User(username=username, email=email, password_hash=hashed_password)
+
+            db.session.add(new_user)
+            db.session.commit()
+
+            logger.info(f"User registered successfully: {username}")
+            return jsonify({'message': 'User registered successfully'}), 201
+        except Exception as e:
+            logger.error(f"Error during user registration: {str(e)}")
+            return jsonify({'message': 'An error occurred during registration'}), 500

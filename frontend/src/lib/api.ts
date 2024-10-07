@@ -1,101 +1,58 @@
-import axios from 'axios'
-import { Project, BotConfig, ActivityLog, Notification } from '@/types'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'
+import axios from 'axios';
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: 'http://localhost:5000/api',  // Ensure this matches your Flask server address
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
+// Add a request interceptor to include the token in every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
   return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
-export const login = async (username: string, password: string) => {
+// Add response interceptor to handle token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        // Implement your token refresh logic here
+        const refreshToken = localStorage.getItem('refreshToken');
+        const response = await axios.post('http://localhost:5000/api/refresh', { refresh_token: refreshToken });
+        const { access_token } = response.data;
+        localStorage.setItem('token', access_token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // If refresh fails, redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Add logout function
+const logout = async () => {
   try {
-    const response = await api.post('/login', { username, password });
-    localStorage.setItem('token', response.data.access_token);
-    return response.data;
-  } catch (error) {
-    console.error('Login failed:', error);
-    throw error;
+    await api.post('/logout');
+  } finally {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
   }
 };
 
-export const logout = async () => {
-  localStorage.removeItem('token');
-};
-
-export const getProjects = async () => {
-  const response = await api.get('/projects');
-  return response.data;
-};
-
-export const startBot = async (botName: string) => {
-  const response = await api.post('/bot/start', { bot_name: botName });
-  return response.data;
-};
-
-export const stopBot = async (botName: string) => {
-  const response = await api.post('/bot/stop', { bot_name: botName });
-  return response.data;
-};
-
-export const getBotStatus = async () => {
-  const response = await api.get('/bot/status');
-  return response.data.status;
-};
-
-export const getDashboardData = async () => {
-  const response = await api.get('/dashboard');
-  return response.data;
-};
-
-export const getEarningsData = async () => {
-  const response = await api.get('/earnings');
-  return response.data;
-};
-
-export const getActivityLogs = async () => {
-  const response = await api.get('/logs');
-  return response.data;
-};
-
-export const getProjectSettings = async () => {
-  const response = await api.get('/projects/settings');
-  return response.data || [];
-};
-
-export const updateProjectSettings = async (projectId: string, settings: Partial<Project>) => {
-  const response = await api.put(`/projects/${projectId}/settings`, settings);
-  return response.data;
-};
-
-export const getStatistics = async () => {
-  const response = await api.get('/statistics');
-  return response.data;
-};
-
-export const getSettings = async () => {
-  const response = await api.get('/settings');
-  return response.data;
-};
-
-export const updateSettings = async (settings: any) => {
-  const response = await api.put('/settings', settings);
-  return response.data;
-};
-
-export const register = async (username: string, password: string) => {
-  const response = await api.post('/register', { username, password });
-  return response.data;
-};
-
-export default api;
+export { api, logout };

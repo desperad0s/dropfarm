@@ -1,0 +1,13 @@
+[380:28108:1007/125141.032:WARNING:chrome_main_delegate.cc(747)] This is Chrome version 129.0.6668.90 (not a warning)
+[380:28108:1007/125141.104:INFO:chrome_browser_cloud_management_controller.cc(196)] No machine level policy manager exists.
+[16592:27436:1007/125141.306:WARNING:viz_main_impl.cc(85)] VizNullHypothesis is disabled (not a warning)
+[380:28108:1007/125141.606:INFO:CONSOLE(1)] "Error while trying to use the following icon from the Manifest: https://web.telegram.org/z/icon-192x192.png (Download error or resource isn't a valid image)", source: https://web.telegram.org/a/ (1)
+[2376:28564:1007/125141.610:INFO:document_style_environment_variables.cc(78)] E2E_Used SafeAreaInsetBottom
+[2376:28564:1007/125141.617:INFO:document_style_environment_variables.cc(78)] E2E_Used SafeAreaInsetBottom
+[2376:28564:1007/125141.620:INFO:document_style_environment_variables.cc(78)] E2E_Used SafeAreaInsetBottom
+[2376:28564:1007/125141.710:INFO:document_style_environment_variables.cc(78)] E2E_Used SafeAreaInsetBottom
+[2376:28564:1007/125141.739:INFO:document_style_environment_variables.cc(78)] E2E_Used SafeAreaInsetBottom
+[2376:28564:1007/125141.858:INFO:document_style_environment_variables.cc(78)] E2E_Used SafeAreaInsetBottom
+[380:28108:1007/125144.495:ERROR:device_event_log_impl.cc(201)] [12:51:44.500] USB: usb_service_win.cc:105 SetupDiGetDeviceProperty({{A45C254E-DF1C-4EFD-8020-67D146A850E0}, 6}) failed: Element nicht gefunden. (0x490)
+[10368:12004:1007/125201.210:WARNING:sqlite_persistent_store_backend_base.cc(198)] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:248 to client_task_runner_.
+[10368:12004:1007/125201.210:WARNING:sqlite_persistent_store_backend_base.cc(198)] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:248 to client_task_runner_.

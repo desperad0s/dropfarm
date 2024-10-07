@@ -42,6 +42,7 @@ class User(db.Model):
     total_tasks_completed = db.Column(db.Integer, default=0)
     total_rewards_earned = db.Column(db.Float, default=0.0)
     current_streak = db.Column(db.Integer, default=0)
+    bot_task_id = db.Column(db.String(36), nullable=True)
 
     @classmethod
     def create(cls, username, password, email):
@@ -128,14 +129,14 @@ class BotActivity(db.Model):
     __tablename__ = 'bot_activities'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    bot_type = db.Column(db.String(50), nullable=False)
+    bot_type = db.Column(db.String(50), nullable=True)  # Change this to nullable=True
     action = db.Column(db.String(100), nullable=False)
     result = db.Column(db.String(100), nullable=False)
     details = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     @classmethod
-    def log(cls, user_id, bot_type, action, result, details=None):
+    def log(cls, user_id, action, result, bot_type=None, details=None):
         activity = cls(user_id=user_id, bot_type=bot_type, action=action, result=result, details=details)
         db.session.add(activity)
         db.session.commit()
