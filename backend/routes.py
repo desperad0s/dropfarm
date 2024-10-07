@@ -46,8 +46,10 @@ def log_activity(user_id, action, result, bot_type=None, details=None):
     db.session.add(new_activity)
     db.session.commit()
 
+RECORDED_ROUTINES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'recorded_routines')
+
 def get_recorded_routines():
-    return [f.replace('_actions.json', '') for f in os.listdir() if f.endswith('_actions.json')]
+    return [f.replace('_actions.json', '') for f in os.listdir(RECORDED_ROUTINES_DIR) if f.endswith('_actions.json')]
 
 def init_routes(app):
     bot_routes = Blueprint('bot_routes', __name__)
@@ -255,8 +257,24 @@ def init_routes(app):
     @bot_routes.route('/projects/settings', methods=['GET', 'POST'])
     @jwt_required()
     def project_settings():
-        # Your code to get or update project settings
-        pass  # Replace this with your actual code
+        current_user = get_jwt_identity()
+        user = User.query.filter_by(username=current_user).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        if request.method == 'GET':
+            settings = BotSettings.get_by_user_id(user.id)
+            return jsonify(settings.to_dict() if settings else {}), 200
+        
+        elif request.method == 'POST':
+            data = request.get_json()
+            BotSettings.create_or_update(
+                user_id=user.id,
+                is_active=data.get('is_active', False),
+                run_interval=data.get('run_interval', 60),
+                max_daily_runs=data.get('max_daily_runs', 5)
+            )
+            return jsonify({"message": "Settings updated successfully"}), 200
 
     @bot_routes.route('/earnings', methods=['GET'])
     @jwt_required()
@@ -341,20 +359,28 @@ def init_routes(app):
     @bot_routes.route('/bot/start_recording', methods=['POST'])
     @jwt_required()
     def start_recording():
-        data = request.get_json()
-        url = data.get('url', 'https://web.telegram.org/')  # Updated default URL
-        message = recorder.start_recording(url)
-        return jsonify({"message": message}), 200
+        try:
+            data = request.get_json()
+            url = data.get('url', 'https://web.telegram.org/k/')
+            message = recorder.start_recording(url)
+            return jsonify({"message": message}), 200
+        except Exception as e:
+            logger.error(f"Error starting recording: {str(e)}")
+            return jsonify({"error": "Failed to start recording", "details": str(e)}), 500
 
     @bot_routes.route('/bot/stop_recording', methods=['POST'])
     @jwt_required()
     def stop_recording():
-        data = request.get_json()
-        routine_name = data.get('routine_name')
-        if not routine_name:
-            return jsonify({"error": "Routine name is required"}), 400
-        message = recorder.stop_recording(routine_name)
-        return jsonify({"message": message}), 200
+        try:
+            data = request.get_json()
+            routine_name = data.get('routine_name')
+            if not routine_name:
+                return jsonify({"error": "Routine name is required"}), 400
+            message = recorder.stop_recording(routine_name)
+            return jsonify({"message": message}), 200
+        except Exception as e:
+            logger.error(f"Error stopping recording: {str(e)}")
+            return jsonify({"error": "Failed to stop recording", "details": str(e)}), 500
 
     @bot_routes.route('/bot/recorded_routines', methods=['GET'])
     @jwt_required()
@@ -362,12 +388,19 @@ def init_routes(app):
         routines = get_recorded_routines()
         return jsonify({"routines": routines}), 200
 
+    @bot_routes.route('/bot/refresh_routines', methods=['GET'])
+    @jwt_required()
+    def refresh_recorded_routines():
+        routines = get_recorded_routines()
+        return jsonify({"routines": routines}), 200
+
     @bot_routes.route('/bot/delete_routine/<routine_name>', methods=['DELETE'])
     @jwt_required()
     def delete_recorded_routine(routine_name):
         file_name = f'{routine_name}_actions.json'
-        if os.path.exists(file_name):
-            os.remove(file_name)
+        file_path = os.path.join(RECORDED_ROUTINES_DIR, file_name)
+        if os.path.exists(file_path):
+            os.remove(file_path)
             return jsonify({"message": f"Routine {routine_name} deleted successfully"}), 200
         else:
             return jsonify({"error": f"Routine {routine_name} not found"}), 404

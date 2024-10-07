@@ -1,157 +1,105 @@
-# 🌱 Dropfarm: Automated Airdrop Farming System
+# 🌱 Dropfarm
 
+Dropfarm is a scalable, headless automation system for web interactions, specifically designed for farming airdrop tokens from new crypto projects.
 
-## 📌 Overview
+## ✨ Features
 
+- Headless browser automation using Selenium
+- Record and playback functionality for creating custom routines
+- User authentication and session management
+- Dashboard for monitoring bot status and activities
+- Support for multiple routines (GOATS, 1Win, PX)
+- Dark mode support
 
-Dropfarm is a scalable, headless automation system for web interactions, designed to farm airdrop tokens from new crypto projects. It interacts with Telegram chat bots and web applications to streamline the airdrop participation process.
+## 🛠️ Tech Stack
 
+- Backend:
+  - Flask
+  - Celery
+  - Redis
+  - SQLAlchemy
 
+- Frontend:
+  - Next.js
+  - React
+  - TypeScript
 
-## 🚀 Features
+- Database:
+  - SQLite (can be easily switched to PostgreSQL for production)
 
+- UI Components:
+  - shadcn/ui
 
-- 🤖 Headless automation for web interactions
-- 💬 Integration with Telegram chat bots
-- 🔗 Support for multiple airdrop projects (GOATS, 1Win, PX)
-- 📊 User-friendly dashboard for monitoring and control
-- 📈 Real-time data visualization of earnings
-- 🔧 Scalable architecture using Flask, Celery, and Redis
+## 🚀 Setup
 
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/dropfarm.git
+   cd dropfarm
+   ```
 
-
-## 🛠 Tech Stack
-
-
-| Component | Technology |
-|-----------|------------|
-| Backend   | Flask, Celery, SQLAlchemy |
-| Frontend  | Next.js, shadcn/ui |
-| Database  | PostgreSQL |
-| Message Broker | Redis |
-| Automation | Selenium WebDriver |
-
-
-
-## 📁 Project Structure
-
-
-dropfarm2_full-app/
-├── backend/
-│ ├── api/
-│ ├── bot/
-│ ├── celery_tasks/
-│ ├── config/
-│ ├── models/
-│ └── tests/
-├── frontend/
-│ ├── components/
-│ ├── pages/
-│ ├── styles/
-│ └── utils/
-├── docker/
-└── scripts/
-
-
-
-## 🚀 Setup and Installation
-
-
-### Prerequisites
-
-- Python 3.7+
-- Node.js 14+
-- PostgreSQL
-- Redis
-
-
-
-### Backend Setup
-
-1. Navigate to the backend directory and create a virtual environment:
+2. Set up the backend:
    ```
    cd backend
    python -m venv venv
    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-   ```
-
-2. Install dependencies and set up the database:
-   ```
    pip install -r requirements.txt
-   flask db upgrade
    ```
 
-3. Configure environment variables in `.env`
-
-
-
-### Frontend Setup
-
-
-1. Install dependencies:
+3. Set up the frontend:
    ```
    cd frontend
    npm install
    ```
 
-2. Configure environment in `.env.local`
-
-
-
-## 🏃‍♂️ Running the Application
-
-
-1. Start the backend:
+4. Start the Redis server:
    ```
-   flask run
-   celery -A app.celery worker --loglevel=info
+   redis-server
    ```
 
-2. Launch the frontend:
+5. Start the Celery worker:
+   ```
+   celery -A backend.celery_app:celery_app worker --loglevel=info
+   ```
+
+6. Start the Flask backend:
+   ```
+   python backend/app.py
+   ```
+
+7. Start the Next.js frontend:
    ```
    npm run dev
    ```
 
+8. Open your browser and navigate to `http://localhost:3000`
 
-## 🧪 Testing
+## 📘 Usage
 
+1. Register a new account or log in to an existing one.
 
+2. Navigate to the dashboard to see the bot status and controls.
 
-| Component | Command |
-|-----------|---------|
-| Backend   | `pytest` |
-| Frontend  | `npm test` |
+3. Use the "Record New Routine" feature to create custom routines.
 
+4. Start and stop routines as needed.
 
+5. Monitor bot activities and earnings on the dashboard.
 
-## 📘 Documentation
+## 🤝 Contributing
 
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-For detailed information on deployment, contributing, and licensing, please refer to:
+## 📄 License
 
-- 📄 [DEPLOYMENT.md](./DEPLOYMENT.md)
-- 👥 [CONTRIBUTING.md](./CONTRIBUTING.md)
-- ⚖️ [LICENSE.md](./LICENSE.md)
+This project is licensed under the MIT License.
 
+## 🙏 Acknowledgements
 
+Special thanks to all contributors and the open-source community for making this project possible.
 
-## 🙏 Acknowledgments
+## 📞 Support
 
+If you encounter any issues or have questions, please open an issue on the GitHub repository.
 
-Special thanks to all contributors and the open-source community for their invaluable tools and libraries.
-
-
-
-## 📬 Contact
-
-
-
-For questions or support, please [open an issue](https://github.com/desperad0s/dropfarm/issues) on our GitHub repository.
-
-
-
-## 📜 License
-
-
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+Happy farming!

@@ -40,36 +40,20 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({resolve, reject});
-        }).then(token => {
-          originalRequest.headers['Authorization'] = 'Bearer ' + token;
-          return api(originalRequest);
-        }).catch(err => {
-          return Promise.reject(err);
-        });
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
-
-      return new Promise((resolve, reject) => {
-        api.post('/refresh', {
-          refresh_token: localStorage.getItem('refreshToken')
-        }).then(({data}) => {
-          localStorage.setItem('token', data.access_token);
-          api.defaults.headers.common['Authorization'] = 'Bearer ' + data.access_token;
-          originalRequest.headers['Authorization'] = 'Bearer ' + data.access_token;
-          processQueue(null, data.access_token);
-          resolve(api(originalRequest));
-        }).catch((err) => {
-          processQueue(err, null);
-          reject(err);
-        }).finally(() => {
-          isRefreshing = false;
-        });
-      });
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        const response = await axios.post('http://localhost:5000/api/refresh', { refresh_token: refreshToken });
+        const { access_token } = response.data;
+        localStorage.setItem('token', access_token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
     }
 
     return Promise.reject(error);
@@ -88,13 +72,13 @@ const getProjectSettings = async () => {
   return response.data;
 };
 
-const updateProjectSettings = async (settings) => {
+const updateProjectSettings = async (settings: any) => {
   const response = await api.post('/projects/settings', settings);
   return response.data;
 };
 
 const startBot = async () => {
-  const response = await api.post('/bot/start');
+  const response = await api.post('/bot/initialize');
   return response.data;
 };
 
@@ -157,6 +141,11 @@ const deleteRecordedRoutine = async (routineName: string) => {
   return response.data;
 };
 
+const refreshRecordedRoutines = async () => {
+  const response = await api.get('/bot/refresh_routines');
+  return response.data.routines;
+};
+
 export { 
   api, 
   login, 
@@ -166,5 +155,10 @@ export {
   startRecording, 
   stopRecording, 
   getRecordedRoutines, 
-  deleteRecordedRoutine 
+  deleteRecordedRoutine, 
+  refreshRecordedRoutines,
+  getProjectSettings,
+  updateProjectSettings,
+  startBot,
+  stopBot
 };

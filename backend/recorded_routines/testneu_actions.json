@@ -1,0 +1,70 @@
+[
+  {
+    "type": "mousemove",
+    "x": 2024,
+    "y": 205
+  },
+  {
+    "type": "wait",
+    "duration": 0.5
+  },
+  {
+    "type": "mousemove",
+    "x": 823,
+    "y": 114
+  },
+  {
+    "type": "wait",
+    "duration": 0.71
+  },
+  {
+    "type": "mousemove",
+    "x": 484,
+    "y": 112
+  },
+  {
+    "type": "wait",
+    "duration": 3.1
+  },
+  {
+    "type": "mousemove",
+    "x": 484,
+    "y": 107
+  },
+  {
+    "type": "wait",
+    "duration": 0.51
+  },
+  {
+    "type": "mousemove",
+    "x": 866,
+    "y": 801
+  },
+  {
+    "type": "wait",
+    "duration": 0.5
+  },
+  {
+    "type": "mousemove",
+    "x": 923,
+    "y": 1023
+  },
+  {
+    "type": "wait",
+    "duration": 3.42
+  },
+  {
+    "type": "mousemove",
+    "x": 920,
+    "y": 1048
+  },
+  {
+    "type": "wait",
+    "duration": 5.29
+  },
+  {
+    "type": "mousemove",
+    "x": 1256,
+    "y": 473
+  }
+]

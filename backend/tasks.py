@@ -7,11 +7,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.webdriver.common.action_chains import ActionChains
 import time
 import os
 import logging
 import json
-from selenium.webdriver.common.action_chains import ActionChains
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Define a path for user data
 USER_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'chrome_user_data')
+
+# Define a path for recorded routines
+RECORDED_ROUTINES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'recorded_routines')
 
 # Global variable to store the WebDriver instance
 driver = None
@@ -43,7 +46,7 @@ def initialize_bot():
         logger.info("WebDriver initialized successfully")
 
         # Navigate to Telegram Web
-        driver.get('https://web.telegram.org/')
+        driver.get('https://web.telegram.org/k/')
         logger.info("Navigated to Telegram Web")
 
         # Wait for the page to load (adjust timeout as needed)
@@ -65,6 +68,91 @@ def initialize_bot():
     except Exception as e:
         logger.error(f"Error initializing bot: {str(e)}")
         return {'status': 'error', 'message': f'Error initializing bot: {str(e)}'}
+
+@celery_app.task(name='backend.tasks.playback_routine')
+def playback_routine(routine_name):
+    global driver, bot_status, active_routines
+    if not driver:
+        initialize_result = initialize_bot()
+        if initialize_result['status'] != 'success':
+            return initialize_result
+    
+    try:
+        driver.execute_script("window.focus();")
+        logger.info(f"Starting playback of routine: {routine_name}")
+        
+        file_path = os.path.join(RECORDED_ROUTINES_DIR, f'{routine_name}_actions.json')
+        logger.info(f"Attempting to open file: {file_path}")
+        
+        with open(file_path, 'r') as f:
+            recorded_data = json.load(f)
+        
+        logger.info(f"Loaded data: {recorded_data}")
+        
+        actions = recorded_data['actions']
+        
+        logger.info(f"Number of actions to perform: {len(actions)}")
+        
+        # Get the current window size
+        window_size = driver.get_window_size()
+        current_width = window_size['width']
+        current_height = window_size['height']
+        
+        # Get the recorded window size (you need to add this to your recorder)
+        recorded_width = recorded_data.get('window_width', current_width)
+        recorded_height = recorded_data.get('window_height', current_height)
+        
+        # Calculate scaling factors
+        width_scale = current_width / recorded_width
+        height_scale = current_height / recorded_height
+        
+        for index, action in enumerate(actions):
+            logger.info(f"Performing action {index + 1}/{len(actions)}: {action}")
+            
+            try:
+                if action['type'] == 'click':
+                    if 'selector' in action:
+                        element = WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, action['selector']))
+                        )
+                        ActionChains(driver).move_to_element(element).click().perform()
+                    else:
+                        scaled_x = int(action['x'] * width_scale)
+                        scaled_y = int(action['y'] * height_scale)
+                        ActionChains(driver).move_by_offset(scaled_x, scaled_y).click().perform()
+                    logger.info(f"Clicked at ({scaled_x}, {scaled_y})")
+                elif action['type'] == 'input':
+                    element = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, action['selector']))
+                    )
+                    element.clear()
+                    element.send_keys(action['value'])
+                    logger.info(f"Input text to element: {action['selector']}")
+                elif action['type'] == 'mousemove':
+                    scaled_x = int(action['x'] * width_scale)
+                    scaled_y = int(action['y'] * height_scale)
+                    ActionChains(driver).move_by_offset(scaled_x, scaled_y).perform()
+                    logger.info(f"Moved mouse to: ({scaled_x}, {scaled_y})")
+                elif action['type'] == 'wait':
+                    time.sleep(action['duration'])
+                    logger.info(f"Waited for {action['duration']} seconds")
+                elif action['type'] == 'navigate':
+                    driver.get(action['url'])
+                    logger.info(f"Navigated to: {action['url']}")
+                else:
+                    logger.warning(f"Unknown action type: {action['type']}")
+            except Exception as e:
+                logger.error(f"Error performing action {index + 1}: {action['type']}. Error: {str(e)}")
+            
+            time.sleep(0.1)  # Small delay between actions
+        
+        active_routines.add(routine_name)
+        bot_status = 'running'
+        logger.info(f"Routine {routine_name} completed successfully")
+        return {'status': 'success', 'message': f'{routine_name} routine completed'}
+    except Exception as e:
+        logger.error(f"Error in {routine_name} routine: {str(e)}")
+        return {'status': 'error', 'message': str(e)}
 
 @celery_app.task(name='backend.tasks.start_routine')
 def start_routine(routine_name):
@@ -106,44 +194,3 @@ def stop_bot():
 @celery_app.task(name='backend.tasks.get_bot_status')
 def get_bot_status():
     return {'status': bot_status, 'active_routines': list(active_routines)}
-
-@celery_app.task(name='backend.tasks.playback_routine')
-def playback_routine(routine_name):
-    global driver, bot_status, active_routines
-    if not driver:
-        return {'status': 'error', 'message': 'Bot not initialized'}
-    
-    try:
-        with open(f'{routine_name}_actions.json', 'r') as f:
-            actions = json.load(f)
-        
-        for action in actions:
-            if action['type'] == 'click':
-                try:
-                    element = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, action['selector']))
-                    )
-                    ActionChains(driver).move_to_element(element).click().perform()
-                except Exception as e:
-                    logger.warning(f"Failed to click element: {action['selector']}. Error: {str(e)}")
-                    # Fallback to JavaScript click
-                    driver.execute_script("arguments[0].click();", element)
-            elif action['type'] == 'input':
-                try:
-                    element = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, action['selector']))
-                    )
-                    element.clear()
-                    element.send_keys(action['value'])
-                except Exception as e:
-                    logger.warning(f"Failed to input text: {action['selector']}. Error: {str(e)}")
-            elif action['type'] == 'mousemove':
-                ActionChains(driver).move_by_offset(action['x'], action['y']).perform()
-            time.sleep(0.5)  # Add a small delay between actions
-        
-        active_routines.add(routine_name)
-        bot_status = 'running'
-        return {'status': 'success', 'message': f'{routine_name} routine completed'}
-    except Exception as e:
-        logger.error(f"Error in {routine_name} routine: {str(e)}")
-        return {'status': 'error', 'message': str(e)}

@@ -1,0 +1,43 @@
+[
+  {
+    "type": "mousemove",
+    "x": 2032,
+    "y": 274
+  },
+  {
+    "type": "wait",
+    "duration": 1.55
+  },
+  {
+    "type": "mousemove",
+    "x": 441,
+    "y": 116
+  },
+  {
+    "type": "wait",
+    "duration": 1.97
+  },
+  {
+    "type": "mousemove",
+    "x": 865,
+    "y": 941
+  },
+  {
+    "type": "wait",
+    "duration": 3.67
+  },
+  {
+    "type": "mousemove",
+    "x": 940,
+    "y": 1051
+  },
+  {
+    "type": "wait",
+    "duration": 20.88
+  },
+  {
+    "type": "mousemove",
+    "x": 1256,
+    "y": 417
+  }
+]

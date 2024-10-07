@@ -20,6 +20,7 @@ export default function RootLayout({
 }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [username, setUsername] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -35,12 +36,12 @@ export default function RootLayout({
         setUsername(response.data.user)
       } catch (error) {
         console.error('Token verification failed:', error)
-        handleLogout()
+        await handleLogout()
       }
     } else {
       setIsLoggedIn(false)
-      router.push('/login')
     }
+    setIsLoading(false)
   }
 
   const handleLogout = async () => {
@@ -48,10 +49,14 @@ export default function RootLayout({
       await logout()
       setIsLoggedIn(false)
       setUsername("")
-      router.push('/logout')
+      router.push('/login')
     } catch (error) {
       console.error('Logout failed:', error)
     }
+  }
+
+  if (isLoading) {
+    return <div>Loading...</div>
   }
 
   return (

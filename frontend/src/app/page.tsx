@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { api, logout, startRecording, stopRecording, getRecordedRoutines, deleteRecordedRoutine } from '@/lib/api'
+import { api, logout, startRecording, stopRecording, getRecordedRoutines, deleteRecordedRoutine, refreshRecordedRoutines } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
@@ -196,6 +196,17 @@ export default function Home() {
     }
   }
 
+  const handleRefreshRoutines = async () => {
+    try {
+      const routines = await refreshRecordedRoutines();
+      setRecordedRoutines(routines);
+      showNotification("Success", "Recorded routines refreshed successfully");
+    } catch (error) {
+      console.error('Failed to refresh recorded routines:', error);
+      showNotification("Error", "Failed to refresh recorded routines", "destructive");
+    }
+  };
+
   if (!dashboardData) {
     return <div>Loading...</div>
   }
@@ -374,6 +385,11 @@ export default function Home() {
           <CardTitle>Recorded Routines</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="flex justify-between items-center mb-4">
+            <Button onClick={handleRefreshRoutines}>
+              Refresh Routines
+            </Button>
+          </div>
           {recordedRoutines.length > 0 ? (
             <ul className="space-y-2">
               {recordedRoutines.map((routine) => (
