@@ -22,18 +22,15 @@ export default function Home() {
   const [recordedRoutines, setRecordedRoutines] = useState<string[]>([])
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('flaskToken');
     if (!token) {
       router.push('/login');
     } else {
       fetchDashboardData();
+      fetchRecordedRoutines();
       const interval = setInterval(checkBotStatus, 5000);
       return () => clearInterval(interval);
     }
-  }, [])
-
-  useEffect(() => {
-    fetchRecordedRoutines()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -132,7 +129,7 @@ export default function Home() {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push('/logout');
+      router.push('/login');
     } catch (error) {
       console.error('Logout failed:', error);
       toast({
@@ -212,7 +209,7 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center space-y-6">
+    <main className="flex min-h-screen flex-col items-center space-y-6 p-24">
       {/* Bot Control Card */}
       <Card className="w-full">
         <CardHeader>
@@ -418,6 +415,8 @@ export default function Home() {
           )}
         </CardContent>
       </Card>
+
+      <Button onClick={handleLogout} variant="outline">Logout</Button>
 
       <Toaster />
     </main>

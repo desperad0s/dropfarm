@@ -4,97 +4,50 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import Link from 'next/link'
-import { login } from '@/lib/api'
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function LoginForm() {
-  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [loginError, setLoginError] = useState("")
   const router = useRouter()
   const { toast } = useToast()
+  const { signIn } = useAuth()
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError("");
     try {
-      const data = await login(username, password);
-      if (data.access_token) {
-        router.push('/');
-      } else {
-        throw new Error('Login failed: No access token received');
+      const { session } = await signIn(email, password);
+      if (session) {
+        router.push('/');  // Redirect to dashboard
       }
     } catch (error) {
-      console.error('Login failed:', error);
-      setLoginError("Login failed. Please check your credentials.");
+      console.error('Login error:', error);
       toast({
-        title: "Error",
-        description: "Login failed. Please check your credentials.",
+        title: "Login Failed",
+        description: "Invalid credentials",
         variant: "destructive",
       })
     }
   };
 
   return (
-    <form className="space-y-6" onSubmit={handleLogin}>
-      <div>
-        <Label htmlFor="username" className="text-foreground">Username</Label>
-        <div className="mt-2">
-          <Input
-            id="username"
-            name="username"
-            type="text"
-            autoComplete="username"
-            required
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="bg-background text-foreground"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="password" className="text-foreground">Password</Label>
-        <div className="mt-2">
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="bg-background text-foreground"
-          />
-        </div>
-      </div>
-
-      {loginError && <p className="text-destructive">{loginError}</p>}
-
-      <div>
-        <Button type="submit" className="w-full">
-          Sign in
-        </Button>
-      </div>
-
-      <div className="mt-6">
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-muted" />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="bg-card px-2 text-muted-foreground">Or</span>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <Link href="/register" className="w-full inline-flex justify-center rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground shadow-sm hover:bg-secondary/90">
-            Create new account
-          </Link>
-        </div>
-      </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      <Input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      <Button type="submit" className="w-full">Login</Button>
     </form>
-  )
+  );
 }

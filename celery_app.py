@@ -1,26 +1,32 @@
 from celery import Celery
+from supabase import create_client, Client
 import os
-import sys
 
-# Add the project root directory to the Python path
-project_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, project_root)
+# Initialize Supabase client
+url: str = os.environ.get("SUPABASE_URL")
+key: str = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(url, key)
 
-def create_celery_app():
-    app = Celery('dropfarm',
-                 broker='amqp://guest:guest@localhost:5672//',
-                 backend='rpc://',
-                 include=['backend.tasks'])  # Change this back to 'backend.tasks'
+celery_app = Celery('tasks', broker='redis://localhost:6379/0')
 
-    app.conf.update(
-        task_serializer='json',
-        accept_content=['json'],
-        result_serializer='json',
-        timezone='UTC',
-        enable_utc=True,
-        worker_pool='solo',  # Use this for Windows
-    )
+class SupabaseBackend(object):
+    def __init__(self):
+        self.client = supabase
 
-    return app
+    def store_result(self, task_id, result, status):
+        self.client.table('celery_results').insert({
+            'task_id': task_id,
+            'result': result,
+            'status': status
+        }).execute()
 
-celery_app = create_celery_app()
+    def get_result(self, task_id):
+        response = self.client.table('celery_results').select('*').eq('task_id', task_id).execute()
+        if response.data:
+            return response.data[0]['result']
+        return None
+
+celery_app.conf.result_backend = SupabaseBackend()
+
+# Add this to ensure Celery tasks can be imported
+celery_app.autodiscover_tasks(['backend.tasks'])
