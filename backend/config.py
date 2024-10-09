@@ -20,6 +20,8 @@ class Config:
         'worker_pool': 'solo',  # For Windows compatibility
     }
 
+    FRONTEND_URL = 'http://localhost:3000'  # Adjust if your frontend runs on a different port
+
     @staticmethod
     def init_app(app):
         pass
