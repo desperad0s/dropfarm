@@ -1,6 +1,6 @@
 import asyncio
 from pyppeteer import launch
-from backend.celery_app import celery_app
+from .celery_config import celery_app
 import logging
 import os
 import json

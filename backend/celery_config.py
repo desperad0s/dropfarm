@@ -6,7 +6,7 @@ RESULT_BACKEND = 'redis://localhost:6379/0'
 celery_app = Celery('dropfarm',
                     broker=BROKER_URL,
                     backend=RESULT_BACKEND,
-                    include=['tasks'])  # Changed from 'backend.tasks' to 'tasks'
+                    include=['backend.tasks'])  # Change this back to 'backend.tasks'
 
 celery_app.conf.update(
     task_serializer='json',
@@ -14,4 +14,5 @@ celery_app.conf.update(
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,
+    worker_pool='solo',  # Add this line for Windows compatibility
 )

@@ -1,63 +1,58 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-from flask_sqlalchemy import SQLAlchemy
+from supabase import create_client, Client
+from dotenv import load_dotenv
+import os
+from backend.celery_config import celery_app as celery
+from backend.tasks import initialize_bot, start_routine, stop_routine, stop_bot, get_bot_status
+from backend.models import db  # Import db from models
 import logging
-from celery import Celery
 
-# Initialize SQLAlchemy
-db = SQLAlchemy()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Initialize Celery
-celery = Celery(__name__, broker='redis://localhost:6379/0')
+load_dotenv()
+
+supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 def create_app():
     app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'  # Use your actual database URI
+    CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
+    
+    # Configure SQLAlchemy
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = 'your-secret-key'  # Change this to a secure random key
-    app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
-    app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
-
-    jwt = JWTManager(app)
-    CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+    
+    # Initialize SQLAlchemy with the app
     db.init_app(app)
-    celery.conf.update(app.config)
-
-    logging.basicConfig(level=logging.INFO)
-
-    class User(db.Model):
-        id = db.Column(db.Integer, primary_key=True)
-        email = db.Column(db.String(120), unique=True, nullable=False)
-        password = db.Column(db.String(255), nullable=False)
-
-    @app.route('/api/register', methods=['POST'])
+    
+    @app.route('/api/register', methods=['POST', 'OPTIONS'])
     def register():
+        if request.method == 'OPTIONS':
+            return jsonify({}), 200
+        
         data = request.json
-        existing_user = User.query.filter_by(email=data['email']).first()
-        if existing_user:
-            return jsonify({"message": "User already exists"}), 409
-        user = User(email=data['email'], password=data['password'])  # In production, hash the password
-        db.session.add(user)
-        db.session.commit()
-        return jsonify({"message": "User registered successfully"}), 201
-
-    @app.route('/api/login', methods=['POST'])
-    def login():
-        data = request.json
-        user = User.query.filter_by(email=data['email']).first()
-        if user and user.password == data['password']:  # In production, use proper password hashing
-            access_token = create_access_token(identity=user.email)
-            return jsonify(access_token=access_token), 200
-        return jsonify({"message": "Invalid credentials"}), 401
+        # Here you would typically add the user to your database
+        # For now, we'll just return a success message
+        return jsonify({"message": "User registered successfully in Flask backend"}), 201
 
     @app.route('/api/dashboard', methods=['GET'])
-    @jwt_required()
     def dashboard():
-        current_user = get_jwt_identity()
-        # Fetch actual data from database
-        return jsonify({
-            "botStatus": "Running",
+        logger.info("Dashboard route accessed")
+        token = request.headers.get('Authorization', '').split(' ')[1]
+        try:
+            user = supabase.auth.get_user(token)
+            if not user:
+                print("Unauthorized access attempt")  # Add this line
+                return jsonify({"error": "Unauthorized"}), 401
+            print(f"Authorized access for user: {user}")  # Add this line
+        except Exception as e:
+            print(f"Error in dashboard route: {str(e)}")  # Add this line
+            return jsonify({"error": str(e)}), 401
+        
+        bot_status = get_bot_status.delay().get()
+        dashboard_data = {
+            "botStatus": bot_status['status'],
             "userStats": {
                 "totalTasksCompleted": 100,
                 "totalRewardsEarned": 500,
@@ -67,89 +62,78 @@ def create_app():
                 {"action": "Task Completed", "result": "Earned 10 points"},
                 {"action": "Bot Started", "result": "Successfully initialized"}
             ]
-        })
+        }
+        print(f"Returning dashboard data: {dashboard_data}")  # Add this line
+        return jsonify(dashboard_data)
 
     @app.route('/api/bot/initialize', methods=['POST'])
-    @jwt_required()
-    def initialize_bot():
-        # Implement bot initialization logic
-        celery.send_task('tasks.initialize_bot')
-        return jsonify({"message": "Bot initialization started", "status": "success"})
+    def initialize_bot_route():
+        token = request.headers.get('Authorization').split(' ')[1]
+        try:
+            user = supabase.auth.get_user(token)
+            if not user:
+                return jsonify({"error": "Unauthorized"}), 401
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
+
+        task = initialize_bot.delay()
+        return jsonify({"message": "Bot initialization started", "task_id": task.id}), 202
 
     @app.route('/api/bot/start/<routine>', methods=['POST'])
-    @jwt_required()
-    def start_routine(routine):
-        # Implement routine start logic
-        celery.send_task('tasks.start_routine', args=[routine])
-        return jsonify({"message": f"{routine} routine start initiated"})
+    def start_routine_route(routine):
+        token = request.headers.get('Authorization').split(' ')[1]
+        try:
+            user = supabase.auth.get_user(token)
+            if not user:
+                return jsonify({"error": "Unauthorized"}), 401
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
+
+        task = start_routine.delay(routine)
+        return jsonify({"message": f"Starting {routine} routine", "task_id": task.id}), 202
 
     @app.route('/api/bot/stop/<routine>', methods=['POST'])
-    @jwt_required()
-    def stop_routine(routine):
-        # Implement routine stop logic
-        celery.send_task('tasks.stop_routine', args=[routine])
-        return jsonify({"message": f"{routine} routine stop initiated"})
+    def stop_routine_route(routine):
+        token = request.headers.get('Authorization').split(' ')[1]
+        try:
+            user = supabase.auth.get_user(token)
+            if not user:
+                return jsonify({"error": "Unauthorized"}), 401
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
+
+        task = stop_routine.delay(routine)
+        return jsonify({"message": f"Stopping {routine} routine", "task_id": task.id}), 202
 
     @app.route('/api/bot/stop', methods=['POST'])
-    @jwt_required()
-    def stop_bot():
-        # Implement bot stop logic
-        celery.send_task('tasks.stop_bot')
-        return jsonify({"message": "Bot stop initiated"})
+    def stop_bot_route():
+        token = request.headers.get('Authorization').split(' ')[1]
+        try:
+            user = supabase.auth.get_user(token)
+            if not user:
+                return jsonify({"error": "Unauthorized"}), 401
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
+
+        task = stop_bot.delay()
+        return jsonify({"message": "Stopping bot", "task_id": task.id}), 202
 
     @app.route('/api/bot/status', methods=['GET'])
-    @jwt_required()
-    def bot_status():
-        # Implement bot status check logic
-        # This should ideally fetch the status from a database or a shared state
-        return jsonify({"status": "running", "active_routines": ["goats", "onewin"]})
-
-    @app.route('/api/bot/start_recording', methods=['POST'])
-    @jwt_required()
-    def start_recording():
-        # Implement start recording logic
-        return jsonify({"message": "Recording started successfully"})
-
-    @app.route('/api/bot/stop_recording', methods=['POST'])
-    @jwt_required()
-    def stop_recording():
-        # Implement stop recording logic
-        return jsonify({"message": "Recording stopped and saved successfully"})
-
-    @app.route('/api/bot/recorded_routines', methods=['GET'])
-    @jwt_required()
-    def get_recorded_routines():
+    def bot_status_route():
+        token = request.headers.get('Authorization').split(' ')[1]
         try:
-            # Implement get recorded routines logic
-            # For now, we'll return dummy data
-            routines = ["goats", "onewin", "px"]
-            return jsonify(routines), 200
+            user = supabase.auth.get_user(token)
+            if not user:
+                return jsonify({"error": "Unauthorized"}), 401
         except Exception as e:
-            app.logger.error(f"Error fetching recorded routines: {str(e)}")
-            return jsonify({"error": "Failed to fetch recorded routines"}), 500
+            return jsonify({"error": str(e)}), 401
 
-    @app.route('/api/bot/recorded_routines/<routine_name>', methods=['DELETE'])
-    @jwt_required()
-    def delete_recorded_routine(routine_name):
-        # Implement delete recorded routine logic
-        return jsonify({"message": f"Routine {routine_name} deleted successfully"})
-
-    @app.route('/api/bot/refresh_recorded_routines', methods=['GET'])
-    @jwt_required()
-    def refresh_recorded_routines():
-        # Implement refresh recorded routines logic
-        return jsonify(["goats", "onewin", "px"])
-
-    @app.route('/api/bot/start_recorded/<routine_name>', methods=['POST'])
-    @jwt_required()
-    def start_recorded_routine(routine_name):
-        # Implement start recorded routine logic
-        return jsonify({"message": f"Recorded routine {routine_name} started successfully"})
+        status = get_bot_status.delay().get()
+        return jsonify(status)
 
     return app
 
 if __name__ == '__main__':
     app = create_app()
-    with app.app_context():
-        db.create_all()
+    logger.info("Flask app created and running")
     app.run(debug=True)

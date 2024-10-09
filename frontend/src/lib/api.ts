@@ -1,132 +1,141 @@
-import axios, { AxiosError } from 'axios';
+import { createClient } from '@supabase/supabase-js'
+import axios from 'axios';
 
-const logApiCall = (functionName: string, ...args: any[]) => {
-  console.log(`API Call: ${functionName}`, ...args);
-};
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+  withCredentials: true,
 });
+
+// Log all requests
+api.interceptors.request.use(request => {
+  console.log('Starting Request', request)
+  return request
+})
+
+// Log all responses
+api.interceptors.response.use(response => {
+  console.log('Response:', response)
+  return response
+})
 
 export const login = async (email: string, password: string) => {
   try {
-    const response = await api.post('/login', { email, password });
-    if (response.data.access_token) {
-      localStorage.setItem('flaskToken', response.data.access_token);
+    console.log("Attempting login with Supabase...");
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      console.error("Supabase login error:", error);
+      throw error;
     }
-    return response.data;
+    console.log("Supabase login successful:", data);
+    return data;
   } catch (error) {
-    // ... (error handling)
+    console.error('Login error:', error)
+    throw error
   }
-};
+}
 
-export const fetchDashboardData = async () => {
-  const response = await api.get('/dashboard');
-  return response.data;
-};
+export const register = async (email: string, password: string) => {
+  try {
+    // Register with Supabase
+    const { data: supabaseData, error: supabaseError } = await supabase.auth.signUp({ email, password })
+    if (supabaseError) throw supabaseError
+
+    // If Supabase registration is successful, register with Flask backend
+    if (supabaseData.user) {
+      const response = await api.post('/register', { email, password });
+      return { ...supabaseData, ...response.data };
+    }
+
+    return supabaseData;
+  } catch (error) {
+    console.error('Registration error:', error)
+    throw error
+  }
+}
 
 export const logout = async () => {
-  localStorage.removeItem('flaskToken');
-  // You might want to make an API call to invalidate the token on the server side
+  const { error } = await supabase.auth.signOut()
+  if (error) throw error
+}
+
+// The rest of the API calls (bot operations, etc.) should use the Flask backend
+export const fetchDashboardData = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('No active session')
+  
+  const response = await api.get('/api/dashboard', {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`
+    }
+  });
+  return response.data;
 };
 
 export const initializeBot = async () => {
-  const response = await api.post('/bot/initialize');
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('No active session')
+
+  const response = await api.post('/api/bot/initialize', {}, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`
+    }
+  });
   return response.data;
 };
 
-export const toggleRoutine = async (routine: string, isActive: boolean) => {
-  const response = await api.post(`/bot/${isActive ? 'start' : 'stop'}/${routine}`);
+export const startRoutine = async (routine: string) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('No active session')
+
+  const response = await api.post(`/api/bot/start/${routine}`, {}, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`
+    }
+  });
+  return response.data;
+};
+
+export const stopRoutine = async (routine: string) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('No active session')
+
+  const response = await api.post(`/api/bot/stop/${routine}`, {}, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`
+    }
+  });
   return response.data;
 };
 
 export const stopBot = async () => {
-  const response = await api.post('/bot/stop');
-  return response.data;
-};
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('No active session')
 
-export const checkBotStatus = async () => {
-  const response = await api.get('/bot/status');
-  return response.data;
-};
-
-export const startRecording = async (url: string) => {
-  const response = await api.post('/bot/start_recording', { url });
-  return response.data;
-};
-
-export const stopRecording = async (routineName: string) => {
-  const response = await api.post('/bot/stop_recording', { routineName });
-  return response.data;
-};
-
-export const getRecordedRoutines = async () => {
-  try {
-    const response = await api.get('/bot/recorded_routines');
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error('Error fetching recorded routines:', error.response?.data || error.message);
-      if (error.response?.status === 401) {
-        // Handle unauthorized error (e.g., redirect to login)
-        throw new Error('Unauthorized: Please log in again');
-      }
+  const response = await api.post('/api/bot/stop', {}, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`
     }
-    throw error;
-  }
-};
-
-export const deleteRecordedRoutine = async (routineName: string) => {
-  const response = await api.delete(`/bot/recorded_routines/${routineName}`);
+  });
   return response.data;
 };
 
-export const refreshRecordedRoutines = async () => {
-  const response = await api.get('/bot/refresh_recorded_routines');
+export const getBotStatus = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('No active session')
+
+  const response = await api.get('/api/bot/status', {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`
+    }
+  });
   return response.data;
 };
 
-export const startRecordedRoutine = async (routineName: string) => {
-  const response = await api.post(`/bot/start_recorded/${routineName}`);
-  return response.data;
-};
-
-// Add authentication token to Flask API calls
-api.interceptors.request.use(async (config) => {
-  const token = localStorage.getItem('flaskToken');
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
-  return config;
-});
+// Add other API functions as needed, following the same pattern
 
 export { api };
-
-export const register = async (email: string, password: string) => {
-  logApiCall('register', email);
-  try {
-    const response = await api.post('/register', { email, password });
-    console.log('Registration response:', response.data);
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('Registration error:', error.response.data);
-        throw new Error(error.response.data.message || 'Registration failed');
-      } else if (error.request) {
-        // The request was made but no response was received
-        console.error('No response received:', error.request);
-        throw new Error('No response from server. Please try again later.');
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Error setting up request:', error.message);
-        throw new Error('An error occurred. Please try again.');
-      }
-    } else {
-      console.error('Registration error:', error);
-      throw new Error('An unexpected error occurred. Please try again.');
-    }
-  }
-};
