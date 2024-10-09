@@ -1,9 +1,25 @@
 import os
-from datetime import timedelta
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///dropfarm.db'
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback_secret_key')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'postgresql://postgres:dropfarmpostgres@localhost:5432/dropfarm')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'your-jwt-secret-key'
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+    
+    SUPABASE_URL = os.environ.get('SUPABASE_URL')
+    SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
+    
+    # Celery configuration
+    CELERY = {
+        'broker_url': os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
+        'result_backend': os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0'),
+        'task_serializer': 'json',
+        'result_serializer': 'json',
+        'accept_content': ['json'],
+        'timezone': 'UTC',
+        'enable_utc': True,
+        'worker_pool': 'solo',  # For Windows compatibility
+    }
+
+    @staticmethod
+    def init_app(app):
+        pass

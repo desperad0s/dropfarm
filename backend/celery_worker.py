@@ -1,11 +1,20 @@
+from flask import Flask
 from celery import Celery
-from app import create_app
+from backend.config import Config
 
-flask_app = create_app()
-celery = Celery(flask_app.name, broker=flask_app.config['CELERY_BROKER_URL'])
-celery.conf.update(flask_app.config)
+def create_celery_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
 
-@celery.task
-def example_task():
-    # Define your tasks here
-    pass
+    celery = Celery(app.name)
+    celery.config_from_object(app.config["CELERY"])
+
+    class ContextTask(celery.Task):
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return self.run(*args, **kwargs)
+
+    celery.Task = ContextTask
+    return celery
+
+celery = create_celery_app()

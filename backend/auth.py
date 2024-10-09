@@ -1,28 +1,21 @@
-import os
-from functools import wraps
-from flask import request, jsonify
-from supabase import create_client, Client
+from flask import Blueprint, request, jsonify
+from supabase import create_client
+from .config import Config
 
-url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(url, key)
+auth_bp = Blueprint('auth', __name__)
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split()[1]
-        
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 401
-        
-        try:
-            user = supabase.auth.get_user(token)
-            current_user = user.user
-        except Exception as e:
-            return jsonify({'message': 'Token is invalid!', 'error': str(e)}), 401
-        
-        return f(current_user, *args, **kwargs)
+supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
+
+@auth_bp.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
     
-    return decorated
+    try:
+        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        return jsonify({"token": response.session.access_token}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Add other auth routes here

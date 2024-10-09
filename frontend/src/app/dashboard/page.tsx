@@ -1,37 +1,42 @@
-"use client"
+'use client'
 
-import React, { useState, useEffect } from 'react'
-import { EarningsChart } from '@/components/earnings-chart'
-import { useAuth } from '@/hooks/useAuth' // Make sure this hook exists
+import { useAuth } from '@/contexts/AuthContext'
+import { useRouter } from 'next/navigation'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
 
-interface EarningsData {
-  total: number
-  lastMonth: number
-  history: Array<{ date: string; amount: number }>
-}
+export default function Dashboard() {
+  const { user, signOut } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
 
-export default function DashboardPage() {
-  const [earningsData, setEarningsData] = useState<EarningsData | undefined>(undefined)
-  const { token } = useAuth() // Make sure this hook is implemented
+  const handleSignOut = async () => {
+    await signOut()
+    toast({
+      title: "Signed Out",
+      description: "You have been successfully signed out.",
+      duration: 3000,
+    })
+    router.push('/')
+  }
 
-  useEffect(() => {
-    if (token) {
-      fetch('/api/earnings', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-        .then(response => response.json())
-        .then(data => setEarningsData(data))
-        .catch(error => console.error('Error fetching earnings data:', error))
-    }
-  }, [token])
+  if (!user) {
+    router.push('/login')
+    return null
+  }
 
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <EarningsChart earningsData={earningsData} />
-      {/* Other dashboard components */}
+    <div className="flex min-h-screen items-center justify-center">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">Dashboard</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-center">Welcome, {user.email}!</p>
+          <Button onClick={handleSignOut} className="w-full">Sign Out</Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }

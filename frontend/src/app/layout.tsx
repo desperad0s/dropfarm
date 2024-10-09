@@ -1,18 +1,13 @@
-'use client'
-
-import { useState, useEffect } from "react"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { ModeToggle } from "@/components/mode-toggle"
-import Link from "next/link"
-import { UserAvatar } from "@/components/Avatar"
-import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
-import { logout, api } from "@/lib/api"
-import { Toaster } from "@/components/ui/toaster"
+import { Inter } from 'next/font/google'
+import './globals.css'
+import ClientLayout from '@/components/ClientLayout'
 
 const inter = Inter({ subsets: ["latin"] })
+
+export const metadata = {
+  title: 'Dropfarm',
+  description: 'Automated airdrop farming',
+}
 
 export default function RootLayout({
   children,
@@ -21,9 +16,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        {children}
-        <Toaster />
+      <body className={inter.className}>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   )
