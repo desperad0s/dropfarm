@@ -1,11 +1,51 @@
-from celery import shared_task
 from .celery_worker import celery
-from .recorder import start_recording_task
+from .recorder import start_recording
 from .supabase_client import supabase
 import json
+import logging
+from celery.exceptions import SoftTimeLimitExceeded
 
-@celery.task
-def run_routine(routine_id, user_id):
+@celery.task(bind=True, name='backend.tasks.start_recording_task', max_retries=0, soft_time_limit=600, time_limit=610)
+def start_recording_task(self, routine_name, tokens_per_run, user_id):
+    logging.info(f"Starting recording for routine: {routine_name}")
+    try:
+        result = start_recording(routine_name)
+        if result and len(result) > 0:
+            try:
+                supabase.table('routines').insert({
+                    'name': routine_name,
+                    'user_id': user_id,
+                    'steps': json.dumps(result),
+                    'tokens_per_run': tokens_per_run
+                }).execute()
+                logging.info(f"Recording completed and saved for routine: {routine_name}")
+                return f"Recording completed for routine: {routine_name}"
+            except Exception as e:
+                logging.error(f"Failed to save routine: {str(e)}")
+                delete_routine(routine_name)
+                raise
+        else:
+            logging.error(f"No actions recorded for routine: {routine_name}")
+            delete_routine(routine_name)
+            return f"No actions recorded for routine: {routine_name}"
+    except SoftTimeLimitExceeded:
+        logging.error(f"Recording time limit exceeded for routine: {routine_name}")
+        delete_routine(routine_name)
+        return f"Recording time limit exceeded for routine: {routine_name}"
+    except Exception as e:
+        logging.error(f"Error during recording: {str(e)}")
+        delete_routine(routine_name)
+        raise
+
+def delete_routine(routine_name):
+    try:
+        supabase.table('routines').delete().eq('name', routine_name).execute()
+        logging.info(f"Deleted routine: {routine_name}")
+    except Exception as e:
+        logging.error(f"Failed to delete routine: {str(e)}")
+
+@celery.task(bind=True)
+def run_routine(self, routine_id, user_id):
     routine = supabase.table('routines').select('*').eq('id', routine_id).single().execute()
     if not routine.data:
         return "Routine not found"
@@ -17,26 +57,7 @@ def run_routine(routine_id, user_id):
     # Update user stats
     supabase.table('user_stats').upsert({
         'user_id': user_id,
-        'routine_runs': supabase.raw('routine_runs + 1')
+        'total_routine_runs': supabase.raw('total_routine_runs + 1')
     }).execute()
 
     return f"Routine {routine.data['name']} completed"
-
-@celery.task
-def start_recording(routine_name, user_id):
-    result = start_recording_task(routine_name)
-    # Save the recorded routine
-    supabase.table('routines').insert({
-        'name': routine_name,
-        'user_id': user_id,
-        'steps': json.dumps(result)
-    }).execute()
-    return f"Recording completed for routine: {routine_name}"
-
-@shared_task
-def example_task():
-    return "This is an example task"
-
-@shared_task
-def start_recording(routine_name):
-    return start_recording_task(routine_name)

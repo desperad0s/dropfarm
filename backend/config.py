@@ -4,20 +4,31 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback_secret_key')
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'postgresql://postgres:dropfarmpostgres@localhost:5432/dropfarm')
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///app.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    SUPABASE_URL = os.getenv('SUPABASE_URL')
-    SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+    # Supabase Configuration
+    SUPABASE_URL = os.environ.get('SUPABASE_URL')
+    SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
     
-    # Celery configuration
-    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-    CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+    # Frontend URL
+    FRONTEND_URL = os.environ.get('FRONTEND_URL') or 'http://localhost:3000'
+    
+    # Celery Configuration
+    CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL') or 'redis://localhost:6379/0'
+    CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND') or 'redis://localhost:6379/0'
+    CELERY_CONFIG = {
+        'broker_url': CELERY_BROKER_URL,
+        'result_backend': CELERY_RESULT_BACKEND,
+        'accept_content': ['json'],
+        'task_serializer': 'json',
+        'result_serializer': 'json',
+        'timezone': 'UTC',
+        'task_always_eager': False,
+        'worker_concurrency': 1,
+        'worker_max_tasks_per_child': 1,
+        'worker_pool': 'solo',
+    }
+
     # Add other configuration variables as needed
-
-    FRONTEND_URL = 'http://localhost:3000'  # Adjust if your frontend runs on a different port
-
-    @staticmethod
-    def init_app(app):
-        pass

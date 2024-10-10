@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 from .models import User, Routine, UserStats
 from .supabase_client import supabase
 from .config import Config
-from .tasks import example_task, start_recording
+from .tasks import start_recording_task
 from .auth import verify_token
+from .celery_worker import celery
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -126,13 +127,11 @@ def get_dashboard(current_user):
 @bot_routes.route('/run-task', methods=['POST'])
 @cross_origin(supports_credentials=True)
 def run_task():
-    task = example_task.delay()
-    return jsonify({"task_id": task.id}), 202
+    return jsonify({"message": "Task functionality is being updated"}), 202
 
 @bot_routes.route('/test-celery', methods=['GET'])
 def test_celery():
-    task = example_task.delay()
-    return jsonify({"message": "Task started", "task_id": task.id}), 202
+    return jsonify({"message": "Celery test functionality is being updated"}), 202
 
 @bot_routes.route('/bot/toggle', methods=['POST'])
 @token_required
@@ -200,12 +199,16 @@ def edit_routine(current_user, routine_id):
 @bot_routes.route('/record', methods=['POST'])
 @token_required
 def record_routine(current_user):
-    routine_name = request.json.get('name')
-    if not routine_name:
-        return jsonify({"error": "Routine name is required"}), 400
+    data = request.json
+    logging.info(f"Received record request: {data}")
+    routine_name = data.get('name')
+    tokens_per_run = data.get('tokens_per_run')
+    if not routine_name or tokens_per_run is None:
+        logging.error(f"Missing required data: name={routine_name}, tokens_per_run={tokens_per_run}")
+        return jsonify({"error": "Routine name and tokens per run are required"}), 400
     
     try:
-        task = start_recording.delay(routine_name)
+        task = start_recording_task.delay(routine_name, tokens_per_run, str(current_user.id))
         return jsonify({"message": f"Recording task started for routine: {routine_name}", "task_id": task.id}), 202
     except Exception as e:
         logger.error(f"Error starting recording: {str(e)}")
@@ -269,3 +272,23 @@ def populate_test_data(current_user):
     except Exception as e:
         logging.error(f"Error populating test data: {str(e)}")
         return jsonify({'message': 'Error populating test data'}), 500
+
+@bot_routes.route('/cancel_recording', methods=['POST'])
+@token_required
+def cancel_recording(current_user):
+    task_id = request.json.get('task_id')
+    if not task_id:
+        return jsonify({"error": "Task ID is required"}), 400
+    
+    celery.control.revoke(task_id, terminate=True, signal='SIGKILL')
+    
+    # Delete the routine data if it exists
+    routine_name = request.json.get('routine_name')
+    if routine_name:
+        try:
+            supabase.table('routines').delete().eq('name', routine_name).execute()
+            logging.info(f"Deleted routine: {routine_name}")
+        except Exception as e:
+            logging.error(f"Failed to delete routine: {str(e)}")
+    
+    return jsonify({"message": "Recording cancelled successfully"}), 200

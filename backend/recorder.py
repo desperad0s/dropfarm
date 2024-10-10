@@ -1,155 +1,159 @@
-import asyncio
-from pyppeteer import launch
-import json
+import time
 import os
-import keyboard
-from pynput import mouse
 import logging
-from celery import shared_task
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
+from webdriver_manager.chrome import ChromeDriverManager
+from pynput import mouse, keyboard
+from selenium.common.exceptions import WebDriverException
 
 logging.basicConfig(level=logging.INFO)
 
-@shared_task
-def start_recording_task(routine_name):
-    recorder = Recorder()
-    return recorder.start_recording(routine_name)
+# Use a single, consistent user data directory for all sessions
+CHROME_USER_DATA_DIR = os.path.join(os.path.dirname(__file__), 'chrome_user_data', 'Default')
 
 class Recorder:
-    def __init__(self):
-        self.browser = None
-        self.page = None
+    def __init__(self, routine_name):
+        self.routine_name = routine_name
         self.recording = False
         self.actions = []
         self.start_time = None
+        self.driver = None
+        self.wait = None
+        self.mouse_listener = None
+        self.keyboard_listener = None
 
-    def start_recording(self, routine_name):
-        if self.recording:
-            return "Already recording"
-        
+    def start(self):
         try:
-            url = 'https://web.telegram.org/k/'  # Fixed URL for now
-            
-            async def run_async():
-                self.browser = await launch(headless=False, args=['--no-sandbox', '--disable-setuid-sandbox'])
-                self.page = await self.browser.newPage()
-                await self.page.goto(url)
-                
-                logging.info(f"Starting recording for routine: {routine_name}")
-                logging.info("Press 'r' to start recording, 's' to stop recording.")
-                
-                self.recording = True
-                self.actions = []
-                self.start_time = asyncio.get_event_loop().time()
-                
-                # Set up mouse listener
-                self.mouse_listener = mouse.Listener(on_click=self.on_click, on_move=self.on_move)
-                self.mouse_listener.start()
-                
-                logging.info("Recording started. Press 's' to stop recording.")
-                
-                keyboard.wait('s')
-                await self.stop_recording()
+            os.makedirs(CHROME_USER_DATA_DIR, exist_ok=True)
 
-            asyncio.get_event_loop().run_until_complete(run_async())
-            
-            return f"Recording completed for routine: {routine_name}"
+            chrome_options = Options()
+            chrome_options.add_argument(f"user-data-dir={CHROME_USER_DATA_DIR}")
+            chrome_options.add_argument("start-maximized")
+            chrome_options.add_argument("force-device-scale-factor=1")
+            chrome_options.add_argument("high-dpi-support=1")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
+
+            service = Service(ChromeDriverManager().install())
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            self.wait = WebDriverWait(self.driver, 10)
+
+            self.driver.execute_script("document.body.style.zoom='100%'")
+            self.driver.get('https://web.telegram.org/k/')
+
+            logging.info(f"Starting recording for routine: {self.routine_name}")
+            logging.info("Press 'r' to start recording, 's' to stop recording.")
+
+            self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
+            self.keyboard_listener.start()
+
+            self.keyboard_listener.join()
+
+            return self.actions
         except Exception as e:
-            logging.exception(f"Error starting recording: {str(e)}")
-            raise
+            logging.error(f"Error during recording: {str(e)}")
+            return None
+        finally:
+            self.cleanup()
 
-    def on_click(self, x, y, button, pressed):
-        if self.recording and pressed:
-            current_time = asyncio.get_event_loop().time() - self.start_time
-            self.actions.append({
-                'type': 'click',
-                'x': x,
-                'y': y,
-                'time': current_time
-            })
-            logging.info(f"Recorded click at ({x}, {y})")
+    def on_press(self, key):
+        try:
+            if key.char == 'r' and not self.recording:
+                self.start_recording()
+            elif key.char == 's' and self.recording:
+                self.stop_recording()
+                return False
+        except AttributeError:
+            pass
 
-    def on_move(self, x, y):
-        if self.recording:
-            current_time = asyncio.get_event_loop().time() - self.start_time
-            self.actions.append({
-                'type': 'move',
-                'x': x,
-                'y': y,
-                'time': current_time
-            })
+    def start_recording(self):
+        self.recording = True
+        self.start_time = time.time()
+        logging.info("Recording started. Press 's' to stop recording.")
+        self.mouse_listener = mouse.Listener(on_click=self.on_click)
+        self.mouse_listener.start()
 
     def stop_recording(self):
-        if not self.recording:
-            return "Not currently recording"
-        
         self.recording = False
         if self.mouse_listener:
             self.mouse_listener.stop()
-        
-        logging.info("Recording stopped")
-        return "Recording stopped"
+        logging.info("Recording stopped.")
 
-    async def save_routine(self, routine_name):
-        if not self.actions:
-            return "No actions to save"
-        
-        file_path = os.path.join('recorded_routines', f'{routine_name}.json')
-        with open(file_path, 'w') as f:
-            json.dump({'actions': self.actions}, f)
-        
-        return f"Routine saved as {routine_name}"
+    def on_click(self, x, y, button, pressed):
+        if self.recording and pressed:
+            try:
+                self.record_action('click', x, y)
+            except WebDriverException:
+                logging.error("Browser window was closed. Stopping recording.")
+                self.stop_recording()
 
-    async def load_routine(self, routine_name):
-        file_path = os.path.join('recorded_routines', f'{routine_name}.json')
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-        self.actions = data['actions']
-        return f"Routine {routine_name} loaded"
+    def record_action(self, action_type, x, y):
+        if self.recording:
+            try:
+                current_time = time.time() - self.start_time
+                viewport_width = self.driver.execute_script("return window.innerWidth")
+                viewport_height = self.driver.execute_script("return window.innerHeight")
+                device_pixel_ratio = self.driver.execute_script("return window.devicePixelRatio")
 
-    async def playback_routine(self, url):
-        if not self.actions:
-            return "No routine loaded or recorded"
-        
-        self.browser = await launch(headless=False)
-        self.page = await self.browser.newPage()
-        await self.page.goto(url)
-        
-        start_time = asyncio.get_event_loop().time()
-        
-        for action in self.actions:
-            await asyncio.sleep(action['time'] - (asyncio.get_event_loop().time() - start_time))
-            
-            if action['type'] == 'click':
-                await self.page.mouse.click(action['x'], action['y'])
-            elif action['type'] == 'move':
-                await self.page.mouse.move(action['x'], action['y'])
-        
-        await self.browser.close()
-        self.browser = None
-        self.page = None
-        
-        return "Routine playback completed"
+                x = x / device_pixel_ratio
+                y = y / device_pixel_ratio
 
-    async def translate_to_headless(self, routine_name):
-        await self.load_routine(routine_name)
-        
-        headless_actions = []
-        for action in self.actions:
-            if action['type'] == 'click':
-                headless_actions.append({
-                    'type': 'click',
-                    'selector': f'document.elementFromPoint({action["x"]}, {action["y"]})',
-                    'time': action['time']
-                })
-            elif action['type'] == 'move':
-                headless_actions.append({
-                    'type': 'move',
-                    'selector': f'document.elementFromPoint({action["x"]}, {action["y"]})',
-                    'time': action['time']
-                })
-        
-        file_path = os.path.join('recorded_routines', f'{routine_name}_headless.json')
-        with open(file_path, 'w') as f:
-            json.dump({'actions': headless_actions}, f)
-        
-        return f"Routine translated to headless and saved as {routine_name}_headless"
+                relative_x = x / viewport_width
+                relative_y = y / viewport_height
+
+                element = self.driver.execute_script(
+                    "return document.elementFromPoint(arguments[0], arguments[1]);",
+                    x, y
+                )
+
+                action = {
+                    'type': action_type,
+                    'time': current_time,
+                    'x': relative_x,
+                    'y': relative_y,
+                    'xpath': self.get_xpath(element) if element else None,
+                    'tag_name': element.tag_name if element else None,
+                    'text': element.text if element else None
+                }
+
+                self.actions.append(action)
+                logging.info(f"Recorded {action_type} at ({x}, {y})")
+            except WebDriverException:
+                logging.error("Browser window was closed. Stopping recording.")
+                self.stop_recording()
+
+    def get_xpath(self, element):
+        components = []
+        child = element
+        while child:
+            parent = child.find_element(By.XPATH, '..')
+            children = parent.find_elements(By.XPATH, '*')
+            index = children.index(child) + 1
+            tag_name = child.tag_name
+            components.insert(0, f'{tag_name}[{index}]')
+            child = parent
+            if child.tag_name == 'html':
+                break
+        return '/' + '/'.join(components)
+
+    def cleanup(self):
+        if self.mouse_listener:
+            self.mouse_listener.stop()
+        if self.keyboard_listener:
+            self.keyboard_listener.stop()
+        if self.driver:
+            try:
+                self.driver.quit()
+            except Exception as e:
+                logging.error(f"Error closing browser: {str(e)}")
+
+def start_recording(routine_name):
+    recorder = Recorder(routine_name)
+    return recorder.start()

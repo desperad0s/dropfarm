@@ -16,7 +16,7 @@ type RoutinesListProps = {
   routines: Routine[]
   onAddRoutine: (routine: Omit<Routine, 'id'>) => void
   onEditRoutine: (routine: Routine) => void
-  onRecordRoutine: (routineName: string) => void
+  onRecordRoutine: (routineName: string, tokensPerRun: number) => void
   onPlaybackRoutine: (name: string, url: string) => void
   onTranslateToHeadless: (name: string) => void
 }
@@ -64,6 +64,15 @@ export function RoutinesList({
     onPlaybackRoutine(name, url)
   }
 
+  const handleStartRecording = () => {
+    if (routineName && tokensPerRun) {
+      onRecordRoutine(routineName, parseInt(tokensPerRun));
+      setIsDialogOpen(false);
+    } else {
+      alert("Please enter a routine name and tokens per run before recording.");
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -108,8 +117,8 @@ export function RoutinesList({
                   onChange={(e) => setTokensPerRun(e.target.value)}
                 />
               </div>
-              <Button onClick={handleAddOrEditRoutine}>
-                {editingRoutine ? 'Save Changes' : 'Add Routine'}
+              <Button onClick={handleStartRecording}>
+                Start Recording
               </Button>
             </div>
           </DialogContent>

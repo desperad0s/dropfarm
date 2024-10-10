@@ -101,18 +101,19 @@ export function Dashboard() {
     }
   }
 
-  const handleRecordRoutine = async (routineName: string) => {
+  const handleRecordRoutine = async (routineName: string, tokensPerRun: number) => {
     try {
       if (!session || !session.access_token) {
         throw new Error('No active session');
       }
+      console.log("Sending record request:", { name: routineName, tokens_per_run: tokensPerRun });
       const response = await fetch(`${API_BASE_URL}/api/record`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ name: routineName }),
+        body: JSON.stringify({ name: routineName, tokens_per_run: tokensPerRun }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -120,7 +121,7 @@ export function Dashboard() {
       }
       const data = await response.json();
       console.log(data.message);
-      alert('Recording task started. A new window should open. Navigate to Telegram and perform your actions. Press "s" to stop recording when finished.');
+      alert('Recording task started. A new window should open. Log in to Telegram, then press Ctrl+R to start recording. Press Ctrl+S to stop recording when finished.');
     } catch (error) {
       console.error('Error starting recording:', error);
       alert(`Error starting recording: ${error instanceof Error ? error.message : String(error)}`);
