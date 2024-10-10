@@ -154,6 +154,89 @@ class Recorder:
             except Exception as e:
                 logging.error(f"Error closing browser: {str(e)}")
 
+class Player:
+    def __init__(self, routine_name):
+        self.routine_name = routine_name
+        self.driver = None
+        self.wait = None
+
+    def start(self, actions):
+        try:
+            chrome_options = Options()
+            chrome_options.add_argument(f"user-data-dir={CHROME_USER_DATA_DIR}")
+            chrome_options.add_argument("start-maximized")
+            chrome_options.add_argument("force-device-scale-factor=1")
+            chrome_options.add_argument("high-dpi-support=1")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
+
+            service = Service(ChromeDriverManager().install())
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            self.wait = WebDriverWait(self.driver, 10)
+
+            self.driver.execute_script("document.body.style.zoom='100%'")
+            self.driver.get('https://web.telegram.org/k/')
+
+            # Wait for the page to load
+            self.wait.until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+
+            logging.info(f"Starting playback for routine: {self.routine_name}")
+
+            for action in actions:
+                self.perform_action(action)
+
+            logging.info(f"Playback completed for routine: {self.routine_name}")
+            return True
+        except Exception as e:
+            logging.error(f"Error during playback: {str(e)}")
+            return False
+        finally:
+            self.cleanup()
+
+    def perform_action(self, action):
+        action_type = action['type']
+        if action_type == 'click':
+            self.perform_click(action)
+        # Add more action types as needed
+
+    def perform_click(self, action):
+        x = action['x']
+        y = action['y']
+        viewport_width = self.driver.execute_script("return window.innerWidth")
+        viewport_height = self.driver.execute_script("return window.innerHeight")
+        
+        abs_x = int(x * viewport_width)
+        abs_y = int(y * viewport_height)
+
+        # Scroll the element into view if it's out of bounds
+        self.driver.execute_script(f"window.scrollTo({abs_x - (viewport_width/2)}, {abs_y - (viewport_height/2)});")
+
+        # Wait for a short time to allow scrolling to complete
+        time.sleep(0.5)
+
+        try:
+            element = self.wait.until(EC.presence_of_element_located((By.XPATH, action['xpath'])))
+            ActionChains(self.driver).move_to_element(element).click().perform()
+        except:
+            # If we can't find the element by XPath, fall back to coordinates
+            ActionChains(self.driver).move_by_offset(abs_x, abs_y).click().perform()
+
+        # Reset the mouse position to (0,0) to avoid cumulative offset errors
+        ActionChains(self.driver).move_by_offset(-abs_x, -abs_y).perform()
+
+        time.sleep(0.5)  # Add a small delay between actions
+
+    def cleanup(self):
+        if self.driver:
+            try:
+                self.driver.quit()
+            except Exception as e:
+                logging.error(f"Error closing browser: {str(e)}")
+
 def start_recording(routine_name):
     recorder = Recorder(routine_name)
     return recorder.start()
+
+def start_playback(routine_name, actions):
+    player = Player(routine_name)
+    return player.start(actions)

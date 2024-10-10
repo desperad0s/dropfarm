@@ -1,5 +1,5 @@
 from .celery_worker import celery
-from .recorder import start_recording
+from .recorder import start_recording, start_playback
 from .supabase_client import supabase
 import json
 import logging
@@ -61,3 +61,24 @@ def run_routine(self, routine_id, user_id):
     }).execute()
 
     return f"Routine {routine.data['name']} completed"
+
+@celery.task(bind=True, name='backend.tasks.start_playback_task', max_retries=0, soft_time_limit=600, time_limit=610)
+def start_playback_task(self, routine_name, user_id):
+    logging.info(f"Starting playback for routine: {routine_name}")
+    try:
+        routine = supabase.table('routines').select('*').eq('name', routine_name).eq('user_id', user_id).single().execute()
+        if not routine.data:
+            return f"Routine not found: {routine_name}"
+        
+        actions = json.loads(routine.data['steps'])
+        result = start_playback(routine_name, actions)
+        
+        if result:
+            logging.info(f"Playback completed for routine: {routine_name}")
+            return f"Playback completed for routine: {routine_name}"
+        else:
+            logging.error(f"Playback failed for routine: {routine_name}")
+            return f"Playback failed for routine: {routine_name}"
+    except Exception as e:
+        logging.error(f"Error during playback: {str(e)}")
+        raise

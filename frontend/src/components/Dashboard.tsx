@@ -128,7 +128,7 @@ export function Dashboard() {
     }
   }
 
-  const handlePlaybackRoutine = async (name: string, url: string) => {
+  const handlePlaybackRoutine = async (name: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/playback`, {
         method: 'POST',
@@ -136,15 +136,17 @@ export function Dashboard() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ name, url }),
+        body: JSON.stringify({ name }),
       });
       if (!response.ok) {
         throw new Error('Failed to start playback');
       }
       const data = await response.json();
       console.log(data.message);
+      // You might want to update the UI to show that playback has started
     } catch (error) {
       console.error('Error starting playback:', error);
+      // Handle the error in the UI
     }
   }
 

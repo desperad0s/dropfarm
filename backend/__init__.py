@@ -19,3 +19,7 @@ def create_app():
 
 # Import tasks to ensure they are registered
 from . import tasks
+
+# Explicitly import and register the playback task
+from .tasks import start_playback_task
+celery_app.task(start_playback_task)

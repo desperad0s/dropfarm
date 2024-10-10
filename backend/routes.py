@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from .models import User, Routine, UserStats
 from .supabase_client import supabase
 from .config import Config
-from .tasks import start_recording_task
+from .tasks import start_recording_task, start_playback_task
 from .auth import verify_token
 from .celery_worker import celery
 
@@ -231,13 +231,16 @@ def load_saved_routine(current_user):
 @bot_routes.route('/playback', methods=['POST'])
 @token_required
 def playback_saved_routine(current_user):
-    url = 'https://web.telegram.org/k/'  # Fixed URL for now
     routine_name = request.json.get('name')
     if not routine_name:
         return jsonify({"error": "Routine name is required"}), 400
     
-    result = playback_routine(url)
-    return jsonify({"message": result}), 200
+    try:
+        task = start_playback_task.delay(routine_name, str(current_user.id))
+        return jsonify({"message": f"Playback task started for routine: {routine_name}", "task_id": task.id}), 202
+    except Exception as e:
+        logger.error(f"Error starting playback: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @bot_routes.route('/translate_headless', methods=['POST'])
 @token_required
