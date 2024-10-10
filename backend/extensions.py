@@ -1,7 +1,2 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from celery import Celery
-
-db = SQLAlchemy()
-migrate = Migrate()
-celery = Celery(__name__)
+# Remove any Flask-SQLAlchemy or Flask-Migrate imports
+# If this file becomes empty after removing these, you can delete it

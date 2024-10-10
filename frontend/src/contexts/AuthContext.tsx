@@ -10,6 +10,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  isPremium: boolean;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,21 +18,30 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+    const setData = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) console.log(error);
+      else {
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.access_token) {
-          localStorage.setItem('token', session.access_token);
-        } else {
-          localStorage.removeItem('token');
-        }
       }
-    );
+      setLoading(false);
+    };
 
-    return () => subscription.unsubscribe();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    setData();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -50,7 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   );

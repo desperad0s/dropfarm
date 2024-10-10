@@ -1,30 +1,31 @@
-from .extensions import db
-from sqlalchemy.dialects.postgresql import UUID
+from pydantic import BaseModel
+from typing import List, Optional
+from datetime import datetime
 import uuid
-from datetime import datetime  # Add this import
 
 # Define your models here
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    supabase_uid = db.Column(UUID(as_uuid=True), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    # Remove the role field if it's not in your database
+class User(BaseModel):
+    id: str  # Changed from uuid.UUID to str
+    email: str
 
-    def __init__(self, email, supabase_uid):
-        self.email = email
-        self.supabase_uid = supabase_uid
+class UserStats(BaseModel):
+    id: str  # Changed from uuid.UUID to str
+    user_id: str  # Changed from uuid.UUID to str
+    routine_runs: int
+    total_earnings: float
+    last_run: Optional[datetime]
 
-class Routine(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    steps = db.Column(db.JSON, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+class Routine(BaseModel):
+    id: str  # Changed from uuid.UUID to str
+    user_id: str  # Changed from uuid.UUID to str
+    name: str
+    steps: List[str]
+    tokens_per_run: int
 
-class UserStats(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    routine_runs = db.Column(db.Integer, default=0)
-    total_earnings = db.Column(db.Float, default=0.0)
-    last_run = db.Column(db.DateTime)
+class BotStatus(BaseModel):
+    id: str  # Changed from uuid.UUID to str
+    user_id: str  # Changed from uuid.UUID to str
+    is_initialized: bool
+    is_running: bool
+    current_mode: str
+    updated_at: datetime

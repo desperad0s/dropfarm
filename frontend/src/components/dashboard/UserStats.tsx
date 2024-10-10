@@ -1,16 +1,22 @@
-import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface UserStatsProps {
-  totalRoutineRuns: number;
-  lastRunDate: string;
+type UserStatsProps = {
+  totalRoutineRuns: number
+  lastRunDate: string
+  totalTokensGenerated: number
 }
 
-export const UserStats: React.FC<UserStatsProps> = ({ totalRoutineRuns, lastRunDate }) => {
+export function UserStats({ totalRoutineRuns, lastRunDate, totalTokensGenerated }: UserStatsProps) {
   return (
-    <div className="bg-white shadow rounded-lg p-4">
-      <h2 className="text-xl font-semibold mb-4">User Stats</h2>
-      <p className="text-sm text-gray-600">Total Routine Runs: {totalRoutineRuns}</p>
-      <p className="text-sm text-gray-600">Last Run Date: {lastRunDate}</p>
-    </div>
-  );
-};
+    <Card>
+      <CardHeader>
+        <CardTitle>User Stats</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Total Routine Runs: {totalRoutineRuns}</p>
+        <p>Last Run Date: {lastRunDate}</p>
+        <p>Total Tokens Generated: {totalTokensGenerated}</p>
+      </CardContent>
+    </Card>
+  )
+}

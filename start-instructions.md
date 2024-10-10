@@ -1,40 +1,67 @@
-# Start Instructions for Dropfarm Application
+# Dropfarm Application Start Instructions
 
-Follow these steps to start the Dropfarm application environment:
+This document provides instructions on how to start the Dropfarm application environment.
 
-1. Activate the virtual environment (from the project root):
+## Prerequisites
+
+- Ensure you have Python 3.7+ installed
+- Make sure you have Redis installed and running
+- Ensure PostgreSQL is installed and running
+
+## Setup
+
+1. Clone the repository (if you haven't already):
    ```
-   source .venv/bin/activate  # On Windows, use: .venv\Scripts\activate
+   git clone <repository-url>
+   cd dropfarm2_full-app
    ```
 
-2. Start the Flask backend (in one terminal):
+2. Create and activate a virtual environment:
+   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows use: venv\Scripts\activate
+   ```
+
+3. Install the required packages:
+   ```
+   pip install -r requirements.txt
+   ```
+
+4. Ensure your `.env` file is in the root directory and contains all necessary environment variables.
+
+## Starting the Application
+
+1. Start the Flask application:
    ```
    python run.py
    ```
+   The application should now be running on `http://localhost:5000`
 
-3. Start the Celery worker (in a new terminal, after activating the virtual environment):
+2. In a new terminal window, start the Celery worker:
    ```
-   celery -A backend.celery_config:celery_app worker --loglevel=info --pool=solo
-   ```
-
-4. Start the frontend (in another new terminal):
-   ```
-   cd frontend
-   npm run dev
+   celery -A backend.celery_worker.celery worker --loglevel=info
    ```
 
-Important Notes:
-- Run these commands in separate terminal windows or tabs.
-- Keep all processes running simultaneously.
-- Ensure your Redis server is running (it's used as the message broker for Celery).
-- Run all commands from the project root directory, except for the frontend command which should be run from the `frontend` directory.
-- If you encounter permission issues, try running your command prompt or PowerShell as an administrator.
+## Additional Commands
 
-To stop the application:
-- Use Ctrl+C in each terminal to stop the respective processes.
-- Deactivate the virtual environment when you're done:
+- To run Flask in debug mode:
   ```
-  deactivate
+  flask run --debug
   ```
 
-Remember to check your `.env` files for any necessary environment variables before starting the application.
+- To run database migrations:
+  ```
+  flask db upgrade
+  ```
+
+Remember to always activate your virtual environment before running any commands.
+
+## Troubleshooting
+
+If you encounter any issues:
+1. Ensure all required services (Redis, PostgreSQL) are running.
+2. Check that your `.env` file contains all necessary environment variables.
+3. Make sure you're in the root directory of the project when running commands.
+4. Verify that your virtual environment is activated.
+
+If problems persist, please refer to the project documentation or contact the development team.
