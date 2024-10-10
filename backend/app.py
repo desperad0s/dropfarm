@@ -1,19 +1,18 @@
 from flask import Flask
 from flask_cors import CORS
-from backend.celery_worker import celery  # Updated import
+from .celery_worker import celery
 from .config import Config
 from .routes import bot_routes
 from .auth import auth_bp
-from .extensions import db
-from flask_migrate import Migrate
+from .extensions import db, migrate
 
-def create_app():
+def create_app(config_class=Config):
     app = Flask(__name__)
-    app.config.from_object('backend.config.Config')
+    app.config.from_object(config_class)
 
     # Initialize extensions
     db.init_app(app)
-    migrate = Migrate(app, db)  # Add this line
+    migrate.init_app(app, db)
 
     # Setup CORS
     CORS(app, resources={r"/api/*": {"origins": Config.FRONTEND_URL}})
@@ -27,7 +26,7 @@ def create_app():
 
     return app
 
-app = create_app()
-
-if __name__ == '__main__':
-    app.run(debug=True)
+# Remove the following lines:
+# app = create_app()
+# if __name__ == '__main__':
+#     app.run(debug=True)
