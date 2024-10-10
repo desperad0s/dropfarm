@@ -8,12 +8,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 from pynput import mouse, keyboard
-from selenium.common.exceptions import WebDriverException, JavascriptException
+from selenium.common.exceptions import WebDriverException
 
 logging.basicConfig(level=logging.INFO)
 
+# Use a single, consistent user data directory for all sessions
 CHROME_USER_DATA_DIR = os.path.join(os.path.dirname(__file__), 'chrome_user_data', 'Default')
 
 class Recorder:
@@ -26,8 +28,6 @@ class Recorder:
         self.wait = None
         self.mouse_listener = None
         self.keyboard_listener = None
-        self.viewport_width = None
-        self.viewport_height = None
 
     def start(self):
         try:
@@ -48,11 +48,7 @@ class Recorder:
             self.driver.execute_script("document.body.style.zoom='100%'")
             self.driver.get('https://web.telegram.org/k/')
 
-            self.viewport_width = self.driver.execute_script("return window.innerWidth")
-            self.viewport_height = self.driver.execute_script("return window.innerHeight")
-
             logging.info(f"Starting recording for routine: {self.routine_name}")
-            logging.info(f"Viewport size during recording: {self.viewport_width}x{self.viewport_height}")
             logging.info("Press 'r' to start recording, 's' to stop recording.")
 
             self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
@@ -60,11 +56,7 @@ class Recorder:
 
             self.keyboard_listener.join()
 
-            return {
-                'actions': self.actions,
-                'viewport_width': self.viewport_width,
-                'viewport_height': self.viewport_height
-            }
+            return self.actions
         except Exception as e:
             logging.error(f"Error during recording: {str(e)}")
             return None
@@ -106,19 +98,29 @@ class Recorder:
         if self.recording:
             try:
                 current_time = time.time() - self.start_time
+                viewport_width = self.driver.execute_script("return window.innerWidth")
+                viewport_height = self.driver.execute_script("return window.innerHeight")
                 device_pixel_ratio = self.driver.execute_script("return window.devicePixelRatio")
 
                 x = x / device_pixel_ratio
                 y = y / device_pixel_ratio
 
-                relative_x = x / self.viewport_width
-                relative_y = y / self.viewport_height
+                relative_x = x / viewport_width
+                relative_y = y / viewport_height
+
+                element = self.driver.execute_script(
+                    "return document.elementFromPoint(arguments[0], arguments[1]);",
+                    x, y
+                )
 
                 action = {
                     'type': action_type,
                     'time': current_time,
                     'x': relative_x,
-                    'y': relative_y
+                    'y': relative_y,
+                    'xpath': self.get_xpath(element) if element else None,
+                    'tag_name': element.tag_name if element else None,
+                    'text': element.text if element else None
                 }
 
                 self.actions.append(action)
@@ -126,6 +128,20 @@ class Recorder:
             except WebDriverException:
                 logging.error("Browser window was closed. Stopping recording.")
                 self.stop_recording()
+
+    def get_xpath(self, element):
+        components = []
+        child = element
+        while child:
+            parent = child.find_element(By.XPATH, '..')
+            children = parent.find_elements(By.XPATH, '*')
+            index = children.index(child) + 1
+            tag_name = child.tag_name
+            components.insert(0, f'{tag_name}[{index}]')
+            child = parent
+            if child.tag_name == 'html':
+                break
+        return '/' + '/'.join(components)
 
     def cleanup(self):
         if self.mouse_listener:
@@ -143,11 +159,8 @@ class Player:
         self.routine_name = routine_name
         self.driver = None
         self.wait = None
-        self.recorded_viewport_width = None
-        self.recorded_viewport_height = None
-        self.start_time = None
 
-    def start(self, recorded_data):
+    def start(self, actions):
         try:
             chrome_options = Options()
             chrome_options.add_argument(f"user-data-dir={CHROME_USER_DATA_DIR}")
@@ -159,30 +172,17 @@ class Player:
 
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            self.wait = WebDriverWait(self.driver, 20)
+            self.wait = WebDriverWait(self.driver, 10)
 
+            self.driver.execute_script("document.body.style.zoom='100%'")
             self.driver.get('https://web.telegram.org/k/')
 
             # Wait for the page to load
             self.wait.until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
-            # Ensure the window is in focus and maximized
-            self.driver.maximize_window()
-            self.driver.execute_script("window.focus();")
-
-            # Wait longer for the page to settle
-            time.sleep(5)
-
-            self.recorded_viewport_width = recorded_data['viewport_width']
-            self.recorded_viewport_height = recorded_data['viewport_height']
-
             logging.info(f"Starting playback for routine: {self.routine_name}")
-            logging.info(f"Recorded viewport size: {self.recorded_viewport_width}x{self.recorded_viewport_height}")
-            logging.info(f"Current window size: {self.driver.get_window_size()}")
 
-            self.start_time = time.time()
-            for action in recorded_data['actions']:
-                self.wait_for_action_time(action['time'])
+            for action in actions:
                 self.perform_action(action)
 
             logging.info(f"Playback completed for routine: {self.routine_name}")
@@ -193,56 +193,38 @@ class Player:
         finally:
             self.cleanup()
 
-    def wait_for_action_time(self, action_time):
-        current_time = time.time() - self.start_time
-        wait_time = max(0, action_time - current_time)
-        if wait_time > 0:
-            time.sleep(wait_time)
-
     def perform_action(self, action):
-        if action['type'] == 'click':
+        action_type = action['type']
+        if action_type == 'click':
             self.perform_click(action)
         # Add more action types as needed
 
     def perform_click(self, action):
+        x = action['x']
+        y = action['y']
+        viewport_width = self.driver.execute_script("return window.innerWidth")
+        viewport_height = self.driver.execute_script("return window.innerHeight")
+        
+        abs_x = int(x * viewport_width)
+        abs_y = int(y * viewport_height)
+
+        # Scroll the element into view if it's out of bounds
+        self.driver.execute_script(f"window.scrollTo({abs_x - (viewport_width/2)}, {abs_y - (viewport_height/2)});")
+
+        # Wait for a short time to allow scrolling to complete
+        time.sleep(0.5)
+
         try:
-            x = action['x']
-            y = action['y']
-            current_viewport_width = self.driver.execute_script("return window.innerWidth")
-            current_viewport_height = self.driver.execute_script("return window.innerHeight")
-            
-            # Calculate the ratio between recorded and current viewport sizes
-            width_ratio = current_viewport_width / self.recorded_viewport_width
-            height_ratio = current_viewport_height / self.recorded_viewport_height
+            element = self.wait.until(EC.presence_of_element_located((By.XPATH, action['xpath'])))
+            ActionChains(self.driver).move_to_element(element).click().perform()
+        except:
+            # If we can't find the element by XPath, fall back to coordinates
+            ActionChains(self.driver).move_by_offset(abs_x, abs_y).click().perform()
 
-            # Adjust coordinates based on the ratio
-            adjusted_x = int(x * width_ratio)
-            adjusted_y = int(y * height_ratio)
+        # Reset the mouse position to (0,0) to avoid cumulative offset errors
+        ActionChains(self.driver).move_by_offset(-abs_x, -abs_y).perform()
 
-            logging.info(f"Original click coordinates: ({x}, {y})")
-            logging.info(f"Adjusted click coordinates: ({adjusted_x}, {adjusted_y})")
-            logging.info(f"Current viewport size: {current_viewport_width}x{current_viewport_height}")
-            logging.info(f"Recorded viewport size: {self.recorded_viewport_width}x{self.recorded_viewport_height}")
-
-            # Ensure coordinates are within viewport
-            adjusted_x = max(0, min(adjusted_x, current_viewport_width - 1))
-            adjusted_y = max(0, min(adjusted_y, current_viewport_height - 1))
-
-            # Scroll into view
-            self.driver.execute_script(f"window.scrollTo({adjusted_x - (current_viewport_width/2)}, {adjusted_y - (current_viewport_height/2)});")
-            time.sleep(0.5)  # Wait for scroll to complete
-
-            # Perform the click using ActionChains
-            action = ActionChains(self.driver)
-            action.move_by_offset(adjusted_x, adjusted_y).click().perform()
-            
-            logging.info(f"Click performed at ({adjusted_x}, {adjusted_y})")
-
-            # Reset mouse position to (0,0)
-            action.move_by_offset(-adjusted_x, -adjusted_y).perform()
-
-        except Exception as e:
-            logging.error(f"Error performing click: {str(e)}")
+        time.sleep(0.5)  # Add a small delay between actions
 
     def cleanup(self):
         if self.driver:
@@ -255,6 +237,6 @@ def start_recording(routine_name):
     recorder = Recorder(routine_name)
     return recorder.start()
 
-def start_playback(routine_name, recorded_data):
+def start_playback(routine_name, actions):
     player = Player(routine_name)
-    return player.start(recorded_data)
+    return player.start(actions)

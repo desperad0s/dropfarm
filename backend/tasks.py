@@ -4,20 +4,18 @@ from .supabase_client import supabase
 import json
 import logging
 from celery.exceptions import SoftTimeLimitExceeded
-from .utils import sanitize_data
 
 @celery.task(bind=True, name='backend.tasks.start_recording_task', max_retries=0, soft_time_limit=600, time_limit=610)
 def start_recording_task(self, routine_name, tokens_per_run, user_id):
     logging.info(f"Starting recording for routine: {routine_name}")
     try:
         result = start_recording(routine_name)
-        if result and len(result['actions']) > 0:
-            sanitized_result = sanitize_data(result)
+        if result and len(result) > 0:
             try:
                 supabase.table('routines').insert({
                     'name': routine_name,
                     'user_id': user_id,
-                    'steps': json.dumps(sanitized_result),
+                    'steps': json.dumps(result),
                     'tokens_per_run': tokens_per_run
                 }).execute()
                 logging.info(f"Recording completed and saved for routine: {routine_name}")
@@ -30,6 +28,10 @@ def start_recording_task(self, routine_name, tokens_per_run, user_id):
             logging.error(f"No actions recorded for routine: {routine_name}")
             delete_routine(routine_name)
             return f"No actions recorded for routine: {routine_name}"
+    except SoftTimeLimitExceeded:
+        logging.error(f"Recording time limit exceeded for routine: {routine_name}")
+        delete_routine(routine_name)
+        return f"Recording time limit exceeded for routine: {routine_name}"
     except Exception as e:
         logging.error(f"Error during recording: {str(e)}")
         delete_routine(routine_name)
@@ -68,10 +70,8 @@ def start_playback_task(self, routine_name, user_id):
         if not routine.data:
             return f"Routine not found: {routine_name}"
         
-        recorded_data = json.loads(routine.data['steps'])
-        logging.info(f"Loaded {len(recorded_data['actions'])} actions for playback")
-        
-        result = start_playback(routine_name, recorded_data)
+        actions = json.loads(routine.data['steps'])
+        result = start_playback(routine_name, actions)
         
         if result:
             logging.info(f"Playback completed for routine: {routine_name}")
