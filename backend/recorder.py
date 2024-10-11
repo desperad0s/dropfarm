@@ -156,7 +156,11 @@ class Recorder:
         var indicator = document.getElementById('recording-indicator');
         if (indicator) indicator.remove();
         """
-        self.driver.execute_script(hide_js)
+        try:
+            if self.driver:
+                self.driver.execute_script(hide_js)
+        except Exception as e:
+            logging.error(f"Error hiding recording indicator: {str(e)}")
 
     def on_click(self, x, y, button, pressed):
         if self.recording and pressed:
@@ -204,6 +208,8 @@ class Player:
         self.viewport_size = None
         self.offset = None
         self.calibrator = Calibrator(calibration_data)
+        self.screenshot_dir = os.path.join(os.path.dirname(__file__), '..', 'screenshots')
+        os.makedirs(self.screenshot_dir, exist_ok=True)
 
     def start(self, recorded_data):
         try:
@@ -329,17 +335,47 @@ class Player:
         if action['type'] == 'click':
             self.perform_click(action)
 
+    def show_click_indicator(self, x, y):
+        js_code = """
+        var clickIndicator = document.createElement('div');
+        clickIndicator.style.position = 'absolute';
+        clickIndicator.style.left = arguments[0] + 'px';
+        clickIndicator.style.top = arguments[1] + 'px';
+        clickIndicator.style.width = '20px';
+        clickIndicator.style.height = '20px';
+        clickIndicator.style.borderRadius = '50%';
+        clickIndicator.style.border = '2px solid red';
+        clickIndicator.style.zIndex = '9999';
+        clickIndicator.style.pointerEvents = 'none';
+        document.body.appendChild(clickIndicator);
+        setTimeout(function() {
+            clickIndicator.remove();
+        }, 1000);
+        """
+        self.driver.execute_script(js_code, x, y)
+
     def perform_click(self, action):
         try:
             if self.calibrator and self.calibrator.is_calibrated():
                 x, y = self.calibrator.transform_coordinate(action['x'], action['y'])
             else:
                 x, y = action['x'], action['y']
+            
+            # Show click indicator before performing the click
+            self.show_click_indicator(x, y)
+            
+            # Take a screenshot
+            screenshot_path = os.path.join(self.screenshot_dir, f"click_indicator_{int(time.time())}.png")
+            self.driver.save_screenshot(screenshot_path)
+            logging.info(f"Screenshot saved: {screenshot_path}")
+            
             action_chains = ActionChains(self.driver)
             action_chains.move_by_offset(x, y).click().perform()
             action_chains.move_by_offset(-x, -y).perform()  # Reset mouse position
-            logging.info(f"Attempting to click at ({x}, {y})")
-            logging.info(f"Transformed click at ({transformed_x}, {transformed_y})")
+            logging.info(f"Click performed at ({x}, {y})")
+            
+            # Add a small delay to allow the indicator to be visible
+            time.sleep(0.5)
         except Exception as e:
             logging.error(f"Error performing click: {str(e)}")
 
