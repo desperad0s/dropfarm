@@ -11,6 +11,7 @@ from .auth import verify_token
 from .celery_worker import celery
 import signal
 from celery.result import AsyncResult
+import json
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -309,3 +310,40 @@ def get_recording_status(current_user, task_id):
         return jsonify({'status': 'failed'})
     else:
         return jsonify({'status': 'in_progress'})
+
+@bot_routes.route('/calibrate', methods=['POST'])
+@token_required
+def calibrate(current_user):
+    calibration_data = request.json.get('calibration_data')
+    if not calibration_data:
+        return jsonify({"error": "Calibration data is required"}), 400
+    
+    try:
+        # Ensure user_id is a string
+        user_id = str(current_user.id)
+        
+        logging.info(f"Attempting to save calibration data for user ID: {user_id}")
+        logging.info(f"Calibration data: {calibration_data}")
+        
+        # Check if a record already exists
+        existing_record = supabase.table('user_calibrations').select('*').eq('user_id', user_id).execute()
+        
+        if existing_record.data:
+            # Update existing record
+            result = supabase.table('user_calibrations').update({
+                'calibration_data': json.dumps(calibration_data),
+                'updated_at': 'now()'
+            }).eq('user_id', user_id).execute()
+        else:
+            # Insert new record
+            result = supabase.table('user_calibrations').insert({
+                'user_id': user_id,
+                'calibration_data': json.dumps(calibration_data)
+            }).execute()
+        
+        logging.info(f"Supabase operation result: {result}")
+        
+        return jsonify({"message": "Calibration data saved successfully"}), 200
+    except Exception as e:
+        logging.error(f"Error saving calibration data: {str(e)}")
+        return jsonify({"error": f"Failed to save calibration data: {str(e)}"}), 500

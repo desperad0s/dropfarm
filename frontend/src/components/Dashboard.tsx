@@ -12,6 +12,7 @@ import { API_BASE_URL } from '@/config'
 import { Button } from '@/components/ui/button'
 import { useToast } from "@/hooks/use-toast"
 import { RefreshCw } from "lucide-react"
+import { Calibration } from '@/components/Calibration'
 
 export function Dashboard() {
   const { user, session } = useAuth()
@@ -19,6 +20,7 @@ export function Dashboard() {
   const { toast } = useToast()
   const [currentRecordingTask, setCurrentRecordingTask] = useState<{ id: string, name: string } | null>(null)
   const [isRecording, setIsRecording] = useState(false);
+  const [showCalibration, setShowCalibration] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     if (!session || !session.access_token) {
@@ -327,6 +329,14 @@ export function Dashboard() {
           onTranslateToHeadless={handleTranslateToHeadless}
         />
         <Button onClick={handlePopulateTestData}>Populate Test Data</Button>
+        <Button onClick={() => setShowCalibration(true)}>Start Calibration</Button>
+        {showCalibration && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" onClick={() => setShowCalibration(false)}>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded" onClick={(e) => e.stopPropagation()}>
+              <Calibration onClose={() => setShowCalibration(false)} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -10,6 +10,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from webdriver_manager.chrome import ChromeDriverManager
 from pynput import mouse, keyboard
+from .calibration import Calibrator
 
 logging.basicConfig(level=logging.INFO)
 
@@ -18,7 +19,7 @@ WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 720  # 16:9 aspect ratio
 
 class Recorder:
-    def __init__(self, routine_name):
+    def __init__(self, routine_name, calibration_data=None):
         self.routine_name = routine_name
         self.recording = False
         self.actions = []
@@ -28,6 +29,7 @@ class Recorder:
         self.keyboard_listener = None
         self.viewport_size = None
         self.offset = None
+        self.calibrator = Calibrator(calibration_data)
 
     def start(self):
         try:
@@ -147,16 +149,15 @@ class Recorder:
     def on_click(self, x, y, button, pressed):
         if self.recording and pressed:
             current_time = time.time() - self.start_time
-            adjusted_x = x - self.offset['x']
-            adjusted_y = y - self.offset['y']
+            transformed_x, transformed_y = self.calibrator.transform_coordinate(x, y)
             action = {
                 'type': 'click',
                 'time': current_time,
-                'x': adjusted_x,
-                'y': adjusted_y
+                'x': transformed_x,
+                'y': transformed_y
             }
             self.actions.append(action)
-            logging.info(f"Recorded click at ({adjusted_x}, {adjusted_y})")
+            logging.info(f"Recorded click at ({transformed_x}, {transformed_y})")
 
     def cleanup(self):
         if self.mouse_listener:
@@ -167,13 +168,14 @@ class Recorder:
             self.driver.quit()
 
 class Player:
-    def __init__(self, routine_name):
+    def __init__(self, routine_name, calibration_data=None):
         self.routine_name = routine_name
         self.driver = None
         self.keyboard_listener = None
         self.playback_started = False
         self.viewport_size = None
         self.offset = None
+        self.calibrator = Calibrator(calibration_data)
 
     def start(self, recorded_data):
         try:
@@ -295,8 +297,7 @@ class Player:
 
     def perform_click(self, action):
         try:
-            x = action['x'] + self.offset['x']
-            y = action['y'] + self.offset['y']
+            x, y = self.calibrator.transform_coordinate(action['x'], action['y'])
             action_chains = ActionChains(self.driver)
             action_chains.move_by_offset(x, y).click().perform()
             action_chains.move_by_offset(-x, -y).perform()  # Reset mouse position

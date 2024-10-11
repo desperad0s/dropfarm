@@ -10,7 +10,8 @@ from .utils import sanitize_data
 def start_recording_task(self, routine_name, tokens_per_run, user_id):
     logging.info(f"Starting recording for routine: {routine_name}")
     try:
-        result = start_recording(routine_name)
+        calibration_data = get_user_calibration_data(user_id)
+        result = start_recording(routine_name, calibration_data)
         if result and len(result['actions']) > 0:
             sanitized_result = sanitize_data(result)
             try:
@@ -64,6 +65,7 @@ def run_routine(self, routine_id, user_id):
 def start_playback_task(self, routine_name, user_id):
     logging.info(f"Starting playback for routine: {routine_name}")
     try:
+        calibration_data = get_user_calibration_data(user_id)
         routines = supabase.table('routines').select('*').eq('name', routine_name).eq('user_id', user_id).execute()
         if not routines.data:
             return f"Routine not found: {routine_name}"
@@ -77,7 +79,7 @@ def start_playback_task(self, routine_name, user_id):
         recorded_data = json.loads(routine['steps'])
         logging.info(f"Loaded {len(recorded_data['actions'])} actions for playback")
         
-        result = start_playback(routine_name, recorded_data)
+        result = start_playback(routine_name, recorded_data, calibration_data)
         
         if result:
             logging.info(f"Playback completed for routine: {routine_name}")
@@ -88,3 +90,7 @@ def start_playback_task(self, routine_name, user_id):
     except Exception as e:
         logging.error(f"Error during playback: {str(e)}")
         raise
+
+def get_user_calibration_data(user_id):
+    calibration = supabase.table('user_calibrations').select('calibration_data').eq('user_id', user_id).single().execute()
+    return json.loads(calibration.data['calibration_data']) if calibration.data else None
