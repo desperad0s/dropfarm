@@ -14,6 +14,8 @@ from pynput import mouse, keyboard
 logging.basicConfig(level=logging.INFO)
 
 CHROME_USER_DATA_DIR = os.path.join(os.path.dirname(__file__), 'chrome_user_data', 'Default')
+WINDOW_WIDTH = 1280
+WINDOW_HEIGHT = 1024
 
 class Recorder:
     def __init__(self, routine_name):
@@ -31,30 +33,29 @@ class Recorder:
 
             chrome_options = Options()
             chrome_options.add_argument(f"user-data-dir={CHROME_USER_DATA_DIR}")
-            chrome_options.add_argument("--start-maximized")
+            chrome_options.add_argument(f"window-size=1280,1024")
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
 
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
+            self.driver.set_window_size(1280, 1024)
             self.driver.get('https://web.telegram.org/k/')
 
-            # Wait for the page to load
             WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
-            # Inject instructions into the page
             self.inject_instructions()
 
             logging.info(f"Starting recording for routine: {self.routine_name}")
-            logging.info("Instructions displayed in the new window.")
+            logging.info(f"Window size set to 1280x1024")
 
             self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
             self.keyboard_listener.start()
 
             self.keyboard_listener.join()
 
-            return {'actions': self.actions}
+            return {'actions': self.actions, 'window_size': {'width': WINDOW_WIDTH, 'height': WINDOW_HEIGHT}}
         except Exception as e:
             logging.error(f"Error during recording: {str(e)}")
             return None
@@ -63,23 +64,26 @@ class Recorder:
 
     def inject_instructions(self):
         instructions_js = """
-        var instructionsDiv = document.createElement('div');
-        instructionsDiv.innerHTML = '<div style="position: fixed; top: 10px; left: 10px; background-color: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 5px; z-index: 9999;">Press F8 to start recording, F9 to stop recording</div>';
-        document.body.appendChild(instructionsDiv);
+        function injectInstructions() {
+            var instructionsDiv = document.createElement('div');
+            instructionsDiv.innerHTML = '<div style="position: fixed; top: 10px; left: 10px; background-color: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 5px; z-index: 9999; pointer-events: none;">Press 7 to start recording, 8 to stop recording</div>';
+            document.body.appendChild(instructionsDiv);
+        }
+        setTimeout(injectInstructions, 2000);  // Delay injection by 2 seconds
         """
         self.driver.execute_script(instructions_js)
 
     def on_press(self, key):
-        if key == keyboard.Key.f8 and not self.recording:
+        if key == keyboard.KeyCode.from_char('7') and not self.recording:
             self.start_recording()
-        elif key == keyboard.Key.f9 and self.recording:
+        elif key == keyboard.KeyCode.from_char('8') and self.recording:
             self.stop_recording()
             return False
 
     def start_recording(self):
         self.recording = True
         self.start_time = time.time()
-        logging.info("Recording started. Press 'F9' to stop recording.")
+        logging.info("Recording started. Press '8' to stop recording.")
         self.mouse_listener = mouse.Listener(on_click=self.on_click)
         self.mouse_listener.start()
         self.show_recording_indicator()
@@ -93,10 +97,13 @@ class Recorder:
 
     def show_recording_indicator(self):
         indicator_js = """
-        var indicatorDiv = document.createElement('div');
-        indicatorDiv.id = 'recording-indicator';
-        indicatorDiv.innerHTML = '<div style="position: fixed; top: 10px; right: 10px; background-color: red; color: white; padding: 10px; border-radius: 50%; z-index: 9999;">REC</div>';
-        document.body.appendChild(indicatorDiv);
+        function showRecordingIndicator() {
+            var indicatorDiv = document.createElement('div');
+            indicatorDiv.id = 'recording-indicator';
+            indicatorDiv.innerHTML = '<div style="position: fixed; top: 10px; right: 10px; background-color: rgba(255, 0, 0, 0.7); color: white; padding: 10px; border-radius: 50%; z-index: 9999; pointer-events: none; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; font-size: 12px; font-weight: bold;">REC</div>';
+            document.body.appendChild(indicatorDiv);
+        }
+        setTimeout(showRecordingIndicator, 100);  // Small delay to ensure it's added after any page updates
         """
         self.driver.execute_script(indicator_js)
 
@@ -138,26 +145,27 @@ class Player:
         try:
             chrome_options = Options()
             chrome_options.add_argument(f"user-data-dir={CHROME_USER_DATA_DIR}")
-            chrome_options.add_argument("--start-maximized")
+            chrome_options.add_argument(f"window-size=1280,1024")
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
 
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
+            self.driver.set_window_size(1280, 1024)
             self.driver.get('https://web.telegram.org/k/')
 
             WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
-            # Inject instructions into the page
             self.inject_instructions()
 
             logging.info(f"Playback window opened for routine: {self.routine_name}")
-            logging.info("Instructions displayed in the new window.")
+            logging.info(f"Window size set to 1280x1024")
 
             self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
             self.keyboard_listener.start()
 
+            # Wait for the user to press '9' to start playback
             while not self.playback_started:
                 time.sleep(0.1)
 
@@ -180,24 +188,30 @@ class Player:
 
     def inject_instructions(self):
         instructions_js = """
-        var instructionsDiv = document.createElement('div');
-        instructionsDiv.innerHTML = '<div style="position: fixed; top: 10px; left: 10px; background-color: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 5px; z-index: 9999;">Press F10 to start playback</div>';
-        document.body.appendChild(instructionsDiv);
+        function injectInstructions() {
+            var instructionsDiv = document.createElement('div');
+            instructionsDiv.innerHTML = '<div style="position: fixed; top: 10px; left: 10px; background-color: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 5px; z-index: 9999; pointer-events: none;">Press 9 to start playback</div>';
+            document.body.appendChild(instructionsDiv);
+        }
+        setTimeout(injectInstructions, 2000);  // Delay injection by 2 seconds
         """
         self.driver.execute_script(instructions_js)
 
     def on_press(self, key):
-        if key == keyboard.Key.f10 and not self.playback_started:
+        if key == keyboard.KeyCode.from_char('9') and not self.playback_started:
             self.playback_started = True
             logging.info("Playback started.")
             return False  # Stop listening for key presses
 
     def show_playback_indicator(self):
         indicator_js = """
-        var indicatorDiv = document.createElement('div');
-        indicatorDiv.id = 'playback-indicator';
-        indicatorDiv.innerHTML = '<div style="position: fixed; top: 10px; right: 10px; background-color: green; color: white; padding: 10px; border-radius: 50%; z-index: 9999;">PLAY</div>';
-        document.body.appendChild(indicatorDiv);
+        function showPlaybackIndicator() {
+            var indicatorDiv = document.createElement('div');
+            indicatorDiv.id = 'playback-indicator';
+            indicatorDiv.innerHTML = '<div style="position: fixed; top: 10px; right: 10px; background-color: rgba(0, 255, 0, 0.7); color: white; padding: 10px; border-radius: 50%; z-index: 9999; pointer-events: none; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; font-size: 12px; font-weight: bold;">PLAY</div>';
+            document.body.appendChild(indicatorDiv);
+        }
+        setTimeout(showPlaybackIndicator, 100);  // Small delay to ensure it's added after any page updates
         """
         self.driver.execute_script(indicator_js)
 

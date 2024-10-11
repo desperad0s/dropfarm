@@ -97,9 +97,9 @@ This guide provides step-by-step instructions to set up and run both the backend
 2. Enter a name for the routine and the tokens per run.
 3. Click "Start Recording".
 4. A new browser window should open. Log in to Telegram if necessary.
-5. Press F8 to start recording your actions.
+5. Press 7 to start recording your actions.
 6. Perform the actions you want to record in the Telegram web interface.
-7. Press F9 to stop recording.
+7. Press 8 to stop recording.
 
 After recording, you should see the new routine in your list of routines on the dashboard.
 
@@ -109,7 +109,7 @@ After recording, you should see the new routine in your list of routines on the 
 2. Click the "Playback" button next to the routine.
 3. A new browser window should open with Telegram Web.
 4. Switch to the new browser window.
-5. Press F10 to start the playback.
+5. Press 9 to start the playback.
 6. The routine will now play back automatically.
 
 ## Troubleshooting

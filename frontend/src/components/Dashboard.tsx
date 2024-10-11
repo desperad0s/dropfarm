@@ -139,11 +139,12 @@ export function Dashboard() {
         body: JSON.stringify({ name }),
       });
       if (!response.ok) {
-        throw new Error('Failed to start playback');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start playback');
       }
       const data = await response.json();
       console.log(data.message);
-      // Alert removed, instructions will be shown in the new window
+      alert('Playback window should open shortly. Please wait for the browser to load, then press 9 to start the playback.');
     } catch (error) {
       console.error('Error starting playback:', error);
       alert(`Error starting playback: ${error instanceof Error ? error.message : String(error)}`);

@@ -64,11 +64,17 @@ def run_routine(self, routine_id, user_id):
 def start_playback_task(self, routine_name, user_id):
     logging.info(f"Starting playback for routine: {routine_name}")
     try:
-        routine = supabase.table('routines').select('*').eq('name', routine_name).eq('user_id', user_id).single().execute()
-        if not routine.data:
+        routines = supabase.table('routines').select('*').eq('name', routine_name).eq('user_id', user_id).execute()
+        if not routines.data:
             return f"Routine not found: {routine_name}"
         
-        recorded_data = json.loads(routine.data['steps'])
+        if len(routines.data) > 1:
+            logging.warning(f"Multiple routines found with name '{routine_name}'. Using the most recent one.")
+            routine = max(routines.data, key=lambda x: x['created_at'])
+        else:
+            routine = routines.data[0]
+        
+        recorded_data = json.loads(routine['steps'])
         logging.info(f"Loaded {len(recorded_data['actions'])} actions for playback")
         
         result = start_playback(routine_name, recorded_data)
