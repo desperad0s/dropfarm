@@ -29,7 +29,7 @@ class Recorder:
         self.keyboard_listener = None
         self.viewport_size = None
         self.offset = None
-        self.calibrator = Calibrator(calibration_data)
+        self.calibrator = Calibrator(calibration_data) if calibration_data else None
 
     def start(self):
         try:
@@ -41,19 +41,25 @@ class Recorder:
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
 
+            # Use ChromeDriverManager to get the latest compatible ChromeDriver
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
             self.driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+            self.driver.set_window_position(0, 0)
             self.driver.get('https://web.telegram.org/k/')
 
             WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+
+            self.driver.execute_script("document.body.style.zoom='100%'")
 
             self.viewport_size = self.get_viewport_size()
             self.offset = self.calculate_offset()
             logging.info(f"Window size: {WINDOW_WIDTH}x{WINDOW_HEIGHT}")
             logging.info(f"Viewport size: {self.viewport_size['width']}x{self.viewport_size['height']}")
             logging.info(f"Calculated offset: {self.offset}")
+            logging.info(f"Viewport size: {self.viewport_size}")
+            logging.info(f"Viewport offset: {self.offset}")
 
             self.inject_instructions()
 
@@ -62,7 +68,13 @@ class Recorder:
             self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
             self.keyboard_listener.start()
 
-            self.keyboard_listener.join()
+            # Wait for user to start recording
+            while not self.recording:
+                time.sleep(0.1)
+
+            # Record until user stops
+            while self.recording:
+                time.sleep(0.1)
 
             return {'actions': self.actions, 'viewport_size': self.viewport_size}
         except Exception as e:
@@ -149,15 +161,31 @@ class Recorder:
     def on_click(self, x, y, button, pressed):
         if self.recording and pressed:
             current_time = time.time() - self.start_time
-            transformed_x, transformed_y = self.calibrator.transform_coordinate(x, y)
-            action = {
-                'type': 'click',
-                'time': current_time,
-                'x': transformed_x,
-                'y': transformed_y
-            }
-            self.actions.append(action)
-            logging.info(f"Recorded click at ({transformed_x}, {transformed_y})")
+            try:
+                if self.calibrator and self.calibrator.is_calibrated():
+                    transformed_x, transformed_y = self.calibrator.transform_coordinate(x, y)
+                else:
+                    transformed_x, transformed_y = x, y
+                action = {
+                    'type': 'click',
+                    'time': current_time,
+                    'x': transformed_x,
+                    'y': transformed_y
+                }
+                self.actions.append(action)
+                logging.info(f"Raw click at ({x}, {y})")
+                logging.info(f"Transformed click at ({transformed_x}, {transformed_y})")
+            except Exception as e:
+                logging.error(f"Error during click recording: {str(e)}")
+                # Use original coordinates if transformation fails
+                action = {
+                    'type': 'click',
+                    'time': current_time,
+                    'x': x,
+                    'y': y
+                }
+                self.actions.append(action)
+                logging.info(f"Recorded click at original coordinates ({x}, {y}) due to error")
 
     def cleanup(self):
         if self.mouse_listener:
@@ -185,19 +213,25 @@ class Player:
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
 
+            # Use ChromeDriverManager to get the latest compatible ChromeDriver
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
             self.driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+            self.driver.set_window_position(0, 0)
             self.driver.get('https://web.telegram.org/k/')
 
             WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+
+            self.driver.execute_script("document.body.style.zoom='100%'")
 
             self.viewport_size = self.get_viewport_size()
             self.offset = self.calculate_offset()
             logging.info(f"Window size: {WINDOW_WIDTH}x{WINDOW_HEIGHT}")
             logging.info(f"Viewport size: {self.viewport_size['width']}x{self.viewport_size['height']}")
             logging.info(f"Calculated offset: {self.offset}")
+            logging.info(f"Viewport size: {self.viewport_size}")
+            logging.info(f"Viewport offset: {self.offset}")
 
             self.inject_instructions()
 
@@ -297,11 +331,15 @@ class Player:
 
     def perform_click(self, action):
         try:
-            x, y = self.calibrator.transform_coordinate(action['x'], action['y'])
+            if self.calibrator and self.calibrator.is_calibrated():
+                x, y = self.calibrator.transform_coordinate(action['x'], action['y'])
+            else:
+                x, y = action['x'], action['y']
             action_chains = ActionChains(self.driver)
             action_chains.move_by_offset(x, y).click().perform()
             action_chains.move_by_offset(-x, -y).perform()  # Reset mouse position
-            logging.info(f"Click performed at ({x}, {y})")
+            logging.info(f"Attempting to click at ({x}, {y})")
+            logging.info(f"Transformed click at ({transformed_x}, {transformed_y})")
         except Exception as e:
             logging.error(f"Error performing click: {str(e)}")
 
@@ -311,10 +349,14 @@ class Player:
         if self.driver:
             self.driver.quit()
 
-def start_recording(routine_name):
-    recorder = Recorder(routine_name)
-    return recorder.start()
+def start_recording(routine_name, calibration_data=None):
+    try:
+        recorder = Recorder(routine_name, calibration_data)
+        return recorder.start()
+    except Exception as e:
+        logging.error(f"Error in start_recording: {str(e)}")
+        return None
 
-def start_playback(routine_name, recorded_data):
-    player = Player(routine_name)
+def start_playback(routine_name, recorded_data, calibration_data=None):
+    player = Player(routine_name, calibration_data)
     return player.start(recorded_data)

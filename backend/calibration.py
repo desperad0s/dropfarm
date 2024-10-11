@@ -16,7 +16,7 @@ class Calibrator:
 
     def transform_coordinate(self, x, y):
         if not self.is_calibrated():
-            return x, y  # Return original coordinates if not calibrated
+            return x, y
 
         points = np.array(self.calibration_points)
         values = np.array(self.expected_points)
@@ -24,7 +24,21 @@ class Calibrator:
         transformed_x = griddata(points, values[:, 0], (x, y), method='linear')
         transformed_y = griddata(points, values[:, 1], (x, y), method='linear')
 
-        return transformed_x[0], transformed_y[0]
+        # Handle case where griddata returns a scalar or 0-d array
+        if np.isscalar(transformed_x) or transformed_x.ndim == 0:
+            transformed_x = float(transformed_x)
+        else:
+            transformed_x = float(transformed_x[0])
+
+        if np.isscalar(transformed_y) or transformed_y.ndim == 0:
+            transformed_y = float(transformed_y)
+        else:
+            transformed_y = float(transformed_y[0])
+
+        # Apply a simple vertical offset correction (adjust the 50 as needed)
+        transformed_y -= 50
+
+        return transformed_x, transformed_y
 
     def to_dict(self):
         return {
