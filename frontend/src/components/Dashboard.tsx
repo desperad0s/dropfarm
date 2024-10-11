@@ -121,7 +121,7 @@ export function Dashboard() {
       }
       const data = await response.json();
       console.log(data.message);
-      alert('Recording task started. A new window should open. Log in to Telegram, then press Ctrl+R to start recording. Press Ctrl+S to stop recording when finished.');
+      alert('Recording task started. A new window should open. Log in to Telegram, then press F8 to start recording. Press F9 to stop recording when finished.');
     } catch (error) {
       console.error('Error starting recording:', error);
       alert(`Error starting recording: ${error instanceof Error ? error.message : String(error)}`);
@@ -143,10 +143,10 @@ export function Dashboard() {
       }
       const data = await response.json();
       console.log(data.message);
-      // You might want to update the UI to show that playback has started
+      alert('Playback window opened. Please switch to the new browser window and press F10 to start the playback.');
     } catch (error) {
       console.error('Error starting playback:', error);
-      // Handle the error in the UI
+      alert(`Error starting playback: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
