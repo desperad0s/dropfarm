@@ -1,14 +1,15 @@
 'use client'
 
-import { ThemeProvider } from 'next-themes'
-import { AuthProvider } from '@/contexts/AuthContext'
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <AuthProvider>
-        {children}
-      </AuthProvider>
-    </ThemeProvider>
+    <div>
+      <nav>
+        {/* Your existing nav items */}
+        <ThemeToggle />
+      </nav>
+      {children}
+    </div>
   )
 }

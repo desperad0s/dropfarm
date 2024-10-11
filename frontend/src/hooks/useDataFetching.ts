@@ -13,6 +13,10 @@ export function useDataFetching<T>(fetchFunction: () => Promise<T>, dependencies
     error: null,
   })
 
+  const setData = (newData: T) => {
+    setState(prevState => ({ ...prevState, data: newData }))
+  }
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -27,5 +31,5 @@ export function useDataFetching<T>(fetchFunction: () => Promise<T>, dependencies
     fetchData()
   }, dependencies)
 
-  return state
+  return { ...state, setData }
 }

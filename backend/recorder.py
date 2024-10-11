@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 CHROME_USER_DATA_DIR = os.path.join(os.path.dirname(__file__), 'chrome_user_data', 'Default')
 WINDOW_WIDTH = 1280
-WINDOW_HEIGHT = 1024
+WINDOW_HEIGHT = 720  # 16:9 aspect ratio
 
 class Recorder:
     def __init__(self, routine_name):
@@ -26,6 +26,8 @@ class Recorder:
         self.driver = None
         self.mouse_listener = None
         self.keyboard_listener = None
+        self.viewport_size = None
+        self.offset = None
 
     def start(self):
         try:
@@ -33,34 +35,62 @@ class Recorder:
 
             chrome_options = Options()
             chrome_options.add_argument(f"user-data-dir={CHROME_USER_DATA_DIR}")
-            chrome_options.add_argument(f"window-size=1280,1024")
+            chrome_options.add_argument(f"window-size={WINDOW_WIDTH},{WINDOW_HEIGHT}")
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
 
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
-            self.driver.set_window_size(1280, 1024)
+            self.driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
             self.driver.get('https://web.telegram.org/k/')
 
             WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
+            self.viewport_size = self.get_viewport_size()
+            self.offset = self.calculate_offset()
+            logging.info(f"Window size: {WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+            logging.info(f"Viewport size: {self.viewport_size['width']}x{self.viewport_size['height']}")
+            logging.info(f"Calculated offset: {self.offset}")
+
             self.inject_instructions()
 
             logging.info(f"Starting recording for routine: {self.routine_name}")
-            logging.info(f"Window size set to 1280x1024")
 
             self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
             self.keyboard_listener.start()
 
             self.keyboard_listener.join()
 
-            return {'actions': self.actions, 'window_size': {'width': WINDOW_WIDTH, 'height': WINDOW_HEIGHT}}
+            return {'actions': self.actions, 'viewport_size': self.viewport_size}
         except Exception as e:
             logging.error(f"Error during recording: {str(e)}")
             return None
         finally:
             self.cleanup()
+
+    def get_viewport_size(self):
+        return self.driver.execute_script("""
+            return {
+                width: window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth,
+                height: window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight
+            }
+        """)
+
+    def calculate_offset(self):
+        return self.driver.execute_script("""
+            var body = document.body;
+            var html = document.documentElement;
+            var windowHeight = window.innerHeight;
+            var documentHeight = Math.max(
+                body.scrollHeight, body.offsetHeight,
+                html.clientHeight, html.scrollHeight, html.offsetHeight
+            );
+            return {
+                x: window.pageXOffset,
+                y: window.pageYOffset + (documentHeight > windowHeight ? windowHeight - documentHeight : 0)
+            };
+        """)
 
     def inject_instructions(self):
         instructions_js = """
@@ -117,14 +147,16 @@ class Recorder:
     def on_click(self, x, y, button, pressed):
         if self.recording and pressed:
             current_time = time.time() - self.start_time
+            adjusted_x = x - self.offset['x']
+            adjusted_y = y - self.offset['y']
             action = {
                 'type': 'click',
                 'time': current_time,
-                'x': x,
-                'y': y
+                'x': adjusted_x,
+                'y': adjusted_y
             }
             self.actions.append(action)
-            logging.info(f"Recorded click at ({x}, {y})")
+            logging.info(f"Recorded click at ({adjusted_x}, {adjusted_y})")
 
     def cleanup(self):
         if self.mouse_listener:
@@ -140,32 +172,38 @@ class Player:
         self.driver = None
         self.keyboard_listener = None
         self.playback_started = False
+        self.viewport_size = None
+        self.offset = None
 
     def start(self, recorded_data):
         try:
             chrome_options = Options()
             chrome_options.add_argument(f"user-data-dir={CHROME_USER_DATA_DIR}")
-            chrome_options.add_argument(f"window-size=1280,1024")
+            chrome_options.add_argument(f"window-size={WINDOW_WIDTH},{WINDOW_HEIGHT}")
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
 
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
-            self.driver.set_window_size(1280, 1024)
+            self.driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
             self.driver.get('https://web.telegram.org/k/')
 
             WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
+            self.viewport_size = self.get_viewport_size()
+            self.offset = self.calculate_offset()
+            logging.info(f"Window size: {WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+            logging.info(f"Viewport size: {self.viewport_size['width']}x{self.viewport_size['height']}")
+            logging.info(f"Calculated offset: {self.offset}")
+
             self.inject_instructions()
 
             logging.info(f"Playback window opened for routine: {self.routine_name}")
-            logging.info(f"Window size set to 1280x1024")
 
             self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
             self.keyboard_listener.start()
 
-            # Wait for the user to press '9' to start playback
             while not self.playback_started:
                 time.sleep(0.1)
 
@@ -185,6 +223,29 @@ class Player:
             return False
         finally:
             self.cleanup()
+
+    def get_viewport_size(self):
+        return self.driver.execute_script("""
+            return {
+                width: window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth,
+                height: window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight
+            }
+        """)
+
+    def calculate_offset(self):
+        return self.driver.execute_script("""
+            var body = document.body;
+            var html = document.documentElement;
+            var windowHeight = window.innerHeight;
+            var documentHeight = Math.max(
+                body.scrollHeight, body.offsetHeight,
+                html.clientHeight, html.scrollHeight, html.offsetHeight
+            );
+            return {
+                x: window.pageXOffset,
+                y: window.pageYOffset + (documentHeight > windowHeight ? windowHeight - documentHeight : 0)
+            };
+        """)
 
     def inject_instructions(self):
         instructions_js = """
@@ -234,7 +295,8 @@ class Player:
 
     def perform_click(self, action):
         try:
-            x, y = action['x'], action['y']
+            x = action['x'] + self.offset['x']
+            y = action['y'] + self.offset['y']
             action_chains = ActionChains(self.driver)
             action_chains.move_by_offset(x, y).click().perform()
             action_chains.move_by_offset(-x, -y).perform()  # Reset mouse position

@@ -9,6 +9,8 @@ from .config import Config
 from .tasks import start_recording_task, start_playback_task
 from .auth import verify_token
 from .celery_worker import celery
+import signal
+from celery.result import AsyncResult
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -283,15 +285,27 @@ def cancel_recording(current_user):
     if not task_id:
         return jsonify({"error": "Task ID is required"}), 400
     
-    celery.control.revoke(task_id, terminate=True, signal='SIGKILL')
+    # Use SIGTERM instead of SIGKILL
+    celery.control.revoke(task_id, terminate=True, signal='SIGTERM')
     
     # Delete the routine data if it exists
     routine_name = request.json.get('routine_name')
     if routine_name:
         try:
-            supabase.table('routines').delete().eq('name', routine_name).execute()
+            supabase.table('routines').delete().eq('name', routine_name).eq('user_id', str(current_user.id)).execute()
             logging.info(f"Deleted routine: {routine_name}")
         except Exception as e:
             logging.error(f"Failed to delete routine: {str(e)}")
     
     return jsonify({"message": "Recording cancelled successfully"}), 200
+
+@bot_routes.route('/recording-status/<task_id>', methods=['GET'])
+@token_required
+def get_recording_status(current_user, task_id):
+    task = AsyncResult(task_id)
+    if task.state == 'SUCCESS':
+        return jsonify({'status': 'completed'})
+    elif task.state == 'FAILURE':
+        return jsonify({'status': 'failed'})
+    else:
+        return jsonify({'status': 'in_progress'})
