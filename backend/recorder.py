@@ -40,8 +40,14 @@ class Recorder:
 
             self.driver.get('https://web.telegram.org/k/')
 
+            # Wait for the page to load
+            WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+
+            # Inject instructions into the page
+            self.inject_instructions()
+
             logging.info(f"Starting recording for routine: {self.routine_name}")
-            logging.info("Press 'F8' to start recording, 'F9' to stop recording.")
+            logging.info("Instructions displayed in the new window.")
 
             self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
             self.keyboard_listener.start()
@@ -54,6 +60,14 @@ class Recorder:
             return None
         finally:
             self.cleanup()
+
+    def inject_instructions(self):
+        instructions_js = """
+        var instructionsDiv = document.createElement('div');
+        instructionsDiv.innerHTML = '<div style="position: fixed; top: 10px; left: 10px; background-color: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 5px; z-index: 9999;">Press F8 to start recording, F9 to stop recording</div>';
+        document.body.appendChild(instructionsDiv);
+        """
+        self.driver.execute_script(instructions_js)
 
     def on_press(self, key):
         if key == keyboard.Key.f8 and not self.recording:
@@ -68,12 +82,30 @@ class Recorder:
         logging.info("Recording started. Press 'F9' to stop recording.")
         self.mouse_listener = mouse.Listener(on_click=self.on_click)
         self.mouse_listener.start()
+        self.show_recording_indicator()
 
     def stop_recording(self):
         self.recording = False
         if self.mouse_listener:
             self.mouse_listener.stop()
         logging.info("Recording stopped.")
+        self.hide_recording_indicator()
+
+    def show_recording_indicator(self):
+        indicator_js = """
+        var indicatorDiv = document.createElement('div');
+        indicatorDiv.id = 'recording-indicator';
+        indicatorDiv.innerHTML = '<div style="position: fixed; top: 10px; right: 10px; background-color: red; color: white; padding: 10px; border-radius: 50%; z-index: 9999;">REC</div>';
+        document.body.appendChild(indicatorDiv);
+        """
+        self.driver.execute_script(indicator_js)
+
+    def hide_recording_indicator(self):
+        hide_js = """
+        var indicator = document.getElementById('recording-indicator');
+        if (indicator) indicator.remove();
+        """
+        self.driver.execute_script(hide_js)
 
     def on_click(self, x, y, button, pressed):
         if self.recording and pressed:
@@ -117,8 +149,11 @@ class Player:
 
             WebDriverWait(self.driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
+            # Inject instructions into the page
+            self.inject_instructions()
+
             logging.info(f"Playback window opened for routine: {self.routine_name}")
-            logging.info("Press 'F10' to start playback.")
+            logging.info("Instructions displayed in the new window.")
 
             self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
             self.keyboard_listener.start()
@@ -127,12 +162,14 @@ class Player:
                 time.sleep(0.1)
 
             logging.info(f"Starting playback for routine: {self.routine_name}")
+            self.show_playback_indicator()
 
             start_time = time.time()
             for action in recorded_data['actions']:
                 self.wait_for_action_time(action['time'], start_time)
                 self.perform_action(action)
 
+            self.hide_playback_indicator()
             logging.info(f"Playback completed for routine: {self.routine_name}")
             return True
         except Exception as e:
@@ -141,11 +178,35 @@ class Player:
         finally:
             self.cleanup()
 
+    def inject_instructions(self):
+        instructions_js = """
+        var instructionsDiv = document.createElement('div');
+        instructionsDiv.innerHTML = '<div style="position: fixed; top: 10px; left: 10px; background-color: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 5px; z-index: 9999;">Press F10 to start playback</div>';
+        document.body.appendChild(instructionsDiv);
+        """
+        self.driver.execute_script(instructions_js)
+
     def on_press(self, key):
         if key == keyboard.Key.f10 and not self.playback_started:
             self.playback_started = True
             logging.info("Playback started.")
             return False  # Stop listening for key presses
+
+    def show_playback_indicator(self):
+        indicator_js = """
+        var indicatorDiv = document.createElement('div');
+        indicatorDiv.id = 'playback-indicator';
+        indicatorDiv.innerHTML = '<div style="position: fixed; top: 10px; right: 10px; background-color: green; color: white; padding: 10px; border-radius: 50%; z-index: 9999;">PLAY</div>';
+        document.body.appendChild(indicatorDiv);
+        """
+        self.driver.execute_script(indicator_js)
+
+    def hide_playback_indicator(self):
+        hide_js = """
+        var indicator = document.getElementById('playback-indicator');
+        if (indicator) indicator.remove();
+        """
+        self.driver.execute_script(hide_js)
 
     def wait_for_action_time(self, action_time, start_time):
         current_time = time.time() - start_time

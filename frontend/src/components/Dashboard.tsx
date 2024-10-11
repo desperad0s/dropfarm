@@ -121,7 +121,7 @@ export function Dashboard() {
       }
       const data = await response.json();
       console.log(data.message);
-      alert('Recording task started. A new window should open. Log in to Telegram, then press F8 to start recording. Press F9 to stop recording when finished.');
+      // Alert removed, instructions will be shown in the new window
     } catch (error) {
       console.error('Error starting recording:', error);
       alert(`Error starting recording: ${error instanceof Error ? error.message : String(error)}`);
@@ -143,7 +143,7 @@ export function Dashboard() {
       }
       const data = await response.json();
       console.log(data.message);
-      alert('Playback window opened. Please switch to the new browser window and press F10 to start the playback.');
+      // Alert removed, instructions will be shown in the new window
     } catch (error) {
       console.error('Error starting playback:', error);
       alert(`Error starting playback: ${error instanceof Error ? error.message : String(error)}`);
