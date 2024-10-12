@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from "@/hooks/use-toast"
 import { RefreshCw } from "lucide-react"
 import { Calibration } from '@/components/Calibration'
+import { useRecordingStatus } from '@/hooks/useRecordingStatus'
 
 export function Dashboard() {
   const { user, session } = useAuth()
@@ -21,6 +22,7 @@ export function Dashboard() {
   const [currentRecordingTask, setCurrentRecordingTask] = useState<{ id: string, name: string } | null>(null)
   const [isRecording, setIsRecording] = useState(false);
   const [showCalibration, setShowCalibration] = useState(false);
+  const { status: recordingStatus, error: recordingError } = useRecordingStatus(currentRecordingTask?.id || null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!session || !session.access_token) {
@@ -335,6 +337,12 @@ export function Dashboard() {
             <div className="bg-white dark:bg-gray-800 p-4 rounded" onClick={(e) => e.stopPropagation()}>
               <Calibration onClose={() => setShowCalibration(false)} />
             </div>
+          </div>
+        )}
+        {currentRecordingTask && (
+          <div>
+            Recording Status: {recordingStatus}
+            {recordingError && <p className="text-red-500">Error: {recordingError}</p>}
           </div>
         )}
       </div>

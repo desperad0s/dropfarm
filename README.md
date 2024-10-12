@@ -1,105 +1,68 @@
-# 🌱 Dropfarm
+# Dropfarm: Automated Web Interaction System
 
-Dropfarm is a scalable, headless automation system for web interactions, specifically designed for farming airdrop tokens from new crypto projects.
+## Overview
 
-## ✨ Features
+Dropfarm is a cutting-edge, scalable, headless automation system designed for web interactions. It's particularly useful for automating tasks related to cryptocurrency airdrops and other web-based activities that require repetitive actions.
 
-- Headless browser automation using Selenium
-- Record and playback functionality for creating custom routines
-- User authentication and session management
-- Dashboard for monitoring bot status and activities
-- Support for multiple routines (GOATS, 1Win, PX)
-- Dark mode support
+## Key Features
 
-## 🛠️ Tech Stack
+- **Headless Automation**: Perform web interactions without a visible browser interface.
+- **Calibration System**: Advanced calibration for precise cursor positioning across different screen resolutions.
+- **Recording and Playback**: Capture and replay complex sequences of web interactions.
+- **Telegram Integration**: Interact with Telegram chatbots for broader automation capabilities.
+- **Modular Design**: Easily extendable to support new airdrop projects or web interaction patterns.
+- **Real-time Monitoring**: Track your automation tasks and earnings through an intuitive dashboard.
 
-- Backend:
-  - Flask
-  - Celery
-  - Redis
-  - SQLAlchemy
+## Current Scope
 
-- Frontend:
-  - Next.js
-  - React
-  - TypeScript
+As of the latest update, Dropfarm supports automation for the following projects:
+- GOATS
+- 1Win
+- PX
 
-- Database:
-  - SQLite (can be easily switched to PostgreSQL for production)
+We're continuously working on expanding this list and improving our existing automations.
 
-- UI Components:
-  - shadcn/ui
+## Tech Stack
 
-## 🚀 Setup
+- **Backend**: Python (Flask), Celery, Redis
+- **Frontend**: Next.js, shadcn/ui
+- **Database**: PostgreSQL
+- **Automation**: Selenium WebDriver
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/dropfarm.git
-   cd dropfarm
-   ```
+## Getting Started
 
-2. Set up the backend:
-   ```
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-   pip install -r requirements.txt
-   ```
+For detailed setup instructions, please refer to our [How to Start Guide](how_to_start.md).
 
-3. Set up the frontend:
-   ```
-   cd frontend
-   npm install
-   ```
+## Recent Improvements
 
-4. Start the Redis server:
-   ```
-   redis-server
-   ```
+- Calibration accuracy increased to 95%
+- Implemented recording and playback functionality with calibration and transform support
+- Fixed issues with calibration data saving and RLS policy
+- Improved relative positioning and dashboard auto-refresh
 
-5. Start the Celery worker:
-   ```
-   celery -A backend.celery_app:celery_app worker --loglevel=info
-   ```
+## Roadmap
 
-6. Start the Flask backend:
-   ```
-   python backend/app.py
-   ```
+- Expand support for more airdrop projects
+- Implement machine learning for more accurate cursor positioning
+- Develop a plugin system for easy addition of new automation routines
+- Enhance error handling and recovery mechanisms
 
-7. Start the Next.js frontend:
-   ```
-   npm run dev
-   ```
+## Contributing
 
-8. Open your browser and navigate to `http://localhost:3000`
+We welcome contributions! If you're interested in improving Dropfarm or adding new features, please check out our [Contributing Guidelines](CONTRIBUTING.md).
 
-## 📘 Usage
+## Disclaimer
 
-1. Register a new account or log in to an existing one.
+Dropfarm is designed for educational and research purposes. Users are responsible for ensuring their use of this tool complies with all relevant terms of service and legal requirements.
 
-2. Navigate to the dashboard to see the bot status and controls.
+## License
 
-3. Use the "Record New Routine" feature to create custom routines.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-4. Start and stop routines as needed.
+## Get Involved
 
-5. Monitor bot activities and earnings on the dashboard.
+Whether you're a developer, a crypto enthusiast, or just curious about web automation, Dropfarm offers an exciting opportunity to explore the cutting edge of automated web interactions. Join us in pushing the boundaries of what's possible with web automation!
 
-## 🤝 Contributing
+For questions, suggestions, or collaboration inquiries, please open an issue or contact the maintainers directly.
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🙏 Acknowledgements
-
-Special thanks to all contributors and the open-source community for making this project possible.
-
-## 📞 Support
-
-If you encounter any issues or have questions, please open an issue on the GitHub repository.
-
-Happy farming!
+Happy farming! 🌱🚀

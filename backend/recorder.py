@@ -18,6 +18,8 @@ CHROME_USER_DATA_DIR = os.path.join(os.path.dirname(__file__), 'chrome_user_data
 WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 720  # 16:9 aspect ratio
 
+logger = logging.getLogger(__name__)
+
 class Recorder:
     def __init__(self, routine_name, calibration_data=None):
         self.routine_name = routine_name
@@ -29,10 +31,16 @@ class Recorder:
         self.keyboard_listener = None
         self.viewport_size = None
         self.offset = None
-        self.calibrator = Calibrator(calibration_data) if calibration_data else None
+        self.calibrator = Calibrator(calibration_data)
+        if self.calibrator.is_calibrated():
+            try:
+                self.calibrator.calibrate()
+            except Exception as e:
+                logger.error(f"Error during calibration: {str(e)}")
 
     def start(self):
         try:
+            logger.info(f"Starting recording for routine: {self.routine_name}")
             os.makedirs(CHROME_USER_DATA_DIR, exist_ok=True)
 
             chrome_options = Options()
@@ -78,7 +86,7 @@ class Recorder:
 
             return {'actions': self.actions, 'viewport_size': self.viewport_size}
         except Exception as e:
-            logging.error(f"Error during recording: {str(e)}")
+            logger.error(f"Error during recording start: {str(e)}")
             return None
         finally:
             self.cleanup()
@@ -166,10 +174,18 @@ class Recorder:
         if self.recording and pressed:
             current_time = time.time() - self.start_time
             try:
+                # Convert to relative coordinates
+                rel_x = x / self.viewport_size['width']
+                rel_y = y / self.viewport_size['height']
+                
                 if self.calibrator and self.calibrator.is_calibrated():
-                    transformed_x, transformed_y = self.calibrator.transform_coordinate(x, y)
+                    transformed_x, transformed_y = self.calibrator.transform_coordinate(rel_x, rel_y)
+                    # Convert back to absolute coordinates
+                    transformed_x *= self.viewport_size['width']
+                    transformed_y *= self.viewport_size['height']
                 else:
                     transformed_x, transformed_y = x, y
+                
                 action = {
                     'type': 'click',
                     'time': current_time,
@@ -208,6 +224,8 @@ class Player:
         self.viewport_size = None
         self.offset = None
         self.calibrator = Calibrator(calibration_data)
+        if self.calibrator.is_calibrated():
+            self.calibrator.calibrate()
         self.screenshot_dir = os.path.join(os.path.dirname(__file__), '..', 'screenshots')
         os.makedirs(self.screenshot_dir, exist_ok=True)
 
@@ -341,10 +359,10 @@ class Player:
         clickIndicator.style.position = 'absolute';
         clickIndicator.style.left = arguments[0] + 'px';
         clickIndicator.style.top = arguments[1] + 'px';
-        clickIndicator.style.width = '20px';
-        clickIndicator.style.height = '20px';
+        clickIndicator.style.width = '4px';
+        clickIndicator.style.height = '4px';
         clickIndicator.style.borderRadius = '50%';
-        clickIndicator.style.border = '2px solid red';
+        clickIndicator.style.backgroundColor = 'red';
         clickIndicator.style.zIndex = '9999';
         clickIndicator.style.pointerEvents = 'none';
         document.body.appendChild(clickIndicator);
@@ -356,10 +374,13 @@ class Player:
 
     def perform_click(self, action):
         try:
+            x, y = action['x'], action['y']
             if self.calibrator and self.calibrator.is_calibrated():
-                x, y = self.calibrator.transform_coordinate(action['x'], action['y'])
-            else:
-                x, y = action['x'], action['y']
+                x, y = self.calibrator.transform_coordinate(x, y)
+            
+            # Ensure coordinates are within viewport
+            x = max(0, min(x, self.viewport_size['width']))
+            y = max(0, min(y, self.viewport_size['height']))
             
             # Show click indicator before performing the click
             self.show_click_indicator(x, y)

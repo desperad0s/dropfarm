@@ -6,10 +6,30 @@ import { useTheme } from "next-themes";
 
 const CALIBRATION_POINTS = [
   { x: 0, y: 0, label: 'Top Left' },
+  { x: 320, y: 0, label: 'Top Left-Center' },
+  { x: 640, y: 0, label: 'Top Center' },
+  { x: 960, y: 0, label: 'Top Right-Center' },
   { x: 1280, y: 0, label: 'Top Right' },
-  { x: 1280, y: 720, label: 'Bottom Right' },
-  { x: 0, y: 720, label: 'Bottom Left' },
+  { x: 0, y: 180, label: 'Left Upper-Middle' },
+  { x: 320, y: 180, label: 'Left-Center Upper-Middle' },
+  { x: 640, y: 180, label: 'Center Upper-Middle' },
+  { x: 960, y: 180, label: 'Right-Center Upper-Middle' },
+  { x: 1280, y: 180, label: 'Right Upper-Middle' },
+  { x: 0, y: 360, label: 'Middle Left' },
+  { x: 320, y: 360, label: 'Middle Left-Center' },
   { x: 640, y: 360, label: 'Center' },
+  { x: 960, y: 360, label: 'Middle Right-Center' },
+  { x: 1280, y: 360, label: 'Middle Right' },
+  { x: 0, y: 540, label: 'Left Lower-Middle' },
+  { x: 320, y: 540, label: 'Left-Center Lower-Middle' },
+  { x: 640, y: 540, label: 'Center Lower-Middle' },
+  { x: 960, y: 540, label: 'Right-Center Lower-Middle' },
+  { x: 1280, y: 540, label: 'Right Lower-Middle' },
+  { x: 0, y: 720, label: 'Bottom Left' },
+  { x: 320, y: 720, label: 'Bottom Left-Center' },
+  { x: 640, y: 720, label: 'Bottom Center' },
+  { x: 960, y: 720, label: 'Bottom Right-Center' },
+  { x: 1280, y: 720, label: 'Bottom Right' },
 ];
 
 export function Calibration({ onClose }: { onClose: () => void }) {
@@ -27,8 +47,8 @@ export function Calibration({ onClose }: { onClose: () => void }) {
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = Math.round(e.clientX - rect.left);
+    const y = Math.round(e.clientY - rect.top);
     setCalibrationData([...calibrationData, [x, y]]);
     setCurrentPoint(currentPoint + 1);
   };
@@ -83,15 +103,25 @@ export function Calibration({ onClose }: { onClose: () => void }) {
     <div 
       className={`relative w-[1280px] h-[720px] ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}
       onClick={handleClick}
+      style={{ cursor: 'crosshair' }}
     >
       {CALIBRATION_POINTS.map((p, index) => (
         <div 
           key={index}
-          className={`absolute w-2 h-2 rounded-full ${index === currentPoint ? 'bg-red-500' : (isDarkMode ? 'bg-gray-400' : 'bg-gray-600')}`}
-          style={{ left: p.x - 4, top: p.y - 4 }}
+          className={`absolute w-4 h-4 rounded-full ${index === currentPoint ? 'bg-red-500' : (isDarkMode ? 'bg-blue-400' : 'bg-blue-600')}`}
+          style={{ 
+            left: `${(p.x / 1280) * 100}%`, 
+            top: `${(p.y / 720) * 100}%`,
+            transform: 'translate(-50%, -50%)',
+            border: '2px solid white',
+            boxShadow: '0 0 0 1px black'
+          }}
         />
       ))}
-      <div className={`absolute top-4 left-4 ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-white text-black'} p-2 rounded shadow`}>
+      <div 
+        className={`absolute top-4 left-4 ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-white text-black'} p-2 rounded shadow`}
+        style={{ zIndex: 10 }}
+      >
         Click the {point.label} point
       </div>
     </div>

@@ -9,8 +9,17 @@ from .utils import sanitize_data
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+def update_recording_status(user_id, routine_name, status):
+    key = f"recording_status:{user_id}:{routine_name}"
+    celery.backend.set(key, status)
+
+def get_recording_status(user_id, routine_name):
+    key = f"recording_status:{user_id}:{routine_name}"
+    return celery.backend.get(key)
+
 @celery.task(bind=True, name='backend.tasks.start_recording_task', max_retries=0, soft_time_limit=600, time_limit=610)
 def start_recording_task(self, routine_name, tokens_per_run, user_id):
+    update_recording_status(user_id, routine_name, "started")
     logger.info(f"Starting recording task for routine: {routine_name}")
     try:
         calibration_data = get_user_calibration_data(user_id)
@@ -27,6 +36,7 @@ def start_recording_task(self, routine_name, tokens_per_run, user_id):
                     'tokens_per_run': tokens_per_run
                 }).execute()
                 logger.info(f"Routine saved to database: {insert_result}")
+                update_recording_status(user_id, routine_name, "completed")
                 return f"Recording completed for routine: {routine_name}"
             except Exception as e:
                 logger.error(f"Failed to save routine: {str(e)}")
@@ -37,6 +47,7 @@ def start_recording_task(self, routine_name, tokens_per_run, user_id):
             delete_routine(routine_name)
             return f"No actions recorded for routine: {routine_name}"
     except Exception as e:
+        update_recording_status(user_id, routine_name, "failed")
         logger.error(f"Error during recording: {str(e)}", exc_info=True)
         delete_routine(routine_name)
         raise

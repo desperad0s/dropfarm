@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from .models import User, Routine, UserStats
 from .supabase_client import supabase
 from .config import Config
-from .tasks import start_recording_task, start_playback_task
+from .tasks import start_recording_task, start_playback_task, get_recording_status
 from .auth import verify_token
 from .celery_worker import celery
 import signal
@@ -212,7 +212,11 @@ def record_routine(current_user):
     
     try:
         task = start_recording_task.delay(routine_name, tokens_per_run, str(current_user.id))
-        return jsonify({"message": f"Recording task started for routine: {routine_name}", "task_id": task.id}), 202
+        return jsonify({
+            "message": f"Recording task started for routine: {routine_name}",
+            "task_id": task.id,
+            "routine_name": routine_name
+        }), 202
     except Exception as e:
         logger.error(f"Error starting recording: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -303,13 +307,20 @@ def cancel_recording(current_user):
 @bot_routes.route('/recording-status/<task_id>', methods=['GET'])
 @token_required
 def get_recording_status(current_user, task_id):
-    task = AsyncResult(task_id)
-    if task.state == 'SUCCESS':
-        return jsonify({'status': 'completed'})
-    elif task.state == 'FAILURE':
-        return jsonify({'status': 'failed'})
-    else:
-        return jsonify({'status': 'in_progress'})
+    try:
+        task = AsyncResult(task_id)
+        status = task.state
+        if status == 'PENDING':
+            return jsonify({'status': 'in_progress'})
+        elif status == 'SUCCESS':
+            return jsonify({'status': 'completed'})
+        elif status == 'FAILURE':
+            return jsonify({'status': 'failed'})
+        else:
+            return jsonify({'status': 'unknown'})
+    except Exception as e:
+        logging.error(f"Error getting recording status: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @bot_routes.route('/calibrate', methods=['POST'])
 @token_required
