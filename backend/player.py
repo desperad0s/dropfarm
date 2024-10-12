@@ -6,6 +6,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 import os
 
 logging.basicConfig(level=logging.DEBUG)
@@ -17,6 +18,7 @@ class Player:
         self.actions = actions
         self.driver = None
         self.start_time = None
+        self.is_playing = False
 
     def start(self):
         chrome_options = Options()
@@ -75,11 +77,18 @@ class Player:
         });
         """)
         
-        WebDriverWait(self.driver, 600).until(
-            lambda d: d.execute_script("return window.playbackStarted === true;")
-        )
+        try:
+            WebDriverWait(self.driver, 600).until(
+                lambda d: d.execute_script("return window.playbackStarted === true;")
+            )
+        except TimeoutException:
+            logger.info("Playback start timed out after 10 minutes.")
+            return
+        
         logger.info("Playback start signal received.")
         self.start_time = time.time()
+        self.is_playing = True
+        self.play()
 
     def play(self):
         if not self.actions['actions']:
@@ -87,6 +96,8 @@ class Player:
             return
 
         for action in self.actions['actions']:
+            if not self.is_playing:
+                break
             self.wait_for_action_time(action['time'])
             if action['type'] == 'click':
                 self.perform_click(action['x'], action['y'])
@@ -127,6 +138,7 @@ class Player:
         self.driver.execute_script(js_code, x, y)
 
     def stop(self):
+        self.is_playing = False
         if self.driver:
             self.driver.quit()
         logger.info(f"Stopped playback for routine: {self.routine_name}")
@@ -134,6 +146,4 @@ class Player:
 def start_playback(routine_name, actions):
     player = Player(routine_name, actions)
     player.start()
-    player.play()
-    player.stop()
     return True
