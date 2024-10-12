@@ -29,10 +29,13 @@ export function Dashboard() {
       throw new Error('No active session');
     }
     console.log("Fetching dashboard data with token:", session.access_token);
-    const response = await fetch(`${API_BASE_URL}/api/dashboard`, {
+    const response = await fetch(`${API_BASE_URL}/dashboard`, {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
       },
+      credentials: 'include',
     });
     if (!response.ok) {
       const errorData = await response.json();
@@ -137,7 +140,7 @@ export function Dashboard() {
 
   const handleAddRoutine = useCallback(async (routine: Omit<{ id: string; name: string; steps: string[]; tokens_per_run: number }, 'id'>) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/routines`, {
+      const response = await fetch(`${API_BASE_URL}/routines`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -148,13 +151,22 @@ export function Dashboard() {
       if (response.ok) {
         // Refresh dashboard data
         fetchDashboardData();
+        toast({
+          title: "Success",
+          description: "New routine added successfully",
+        });
       } else {
         throw new Error('Failed to add routine');
       }
     } catch (error) {
       console.error('Error adding routine:', error);
+      toast({
+        title: "Error",
+        description: `Failed to add routine: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive",
+      });
     }
-  }, [session, fetchDashboardData]);
+  }, [session, fetchDashboardData, toast]);
 
   const handleEditRoutine = useCallback(async (routine: { id: string; name: string; steps: string[]; tokens_per_run: number }) => {
     try {
@@ -177,15 +189,15 @@ export function Dashboard() {
     }
   }, [session, fetchDashboardData]);
 
-  const handlePlaybackRoutine = useCallback(async (name: string) => {
+  const handlePlaybackRoutine = useCallback(async (name: string, repeatIndefinitely: boolean) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/playback`, {
+      const response = await fetch(`${API_BASE_URL}/start_playback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, repeat_indefinitely: repeatIndefinitely }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -281,6 +293,29 @@ export function Dashboard() {
     }
   }, [currentRecordingTask, session, toast]);
 
+  const handleDeleteRoutine = useCallback(async (routineId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/routines/${routineId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete routine');
+      }
+      // Refresh dashboard data after successful deletion
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error deleting routine:', error);
+      toast({
+        title: "Error",
+        description: `Failed to delete routine: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive",
+      });
+    }
+  }, [session, fetchDashboardData, toast]);
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isRecording) {
@@ -329,6 +364,7 @@ export function Dashboard() {
           onRecordRoutine={handleRecordRoutine}
           onPlaybackRoutine={handlePlaybackRoutine}
           onTranslateToHeadless={handleTranslateToHeadless}
+          onDeleteRoutine={handleDeleteRoutine}  // Add this line
         />
         <Button onClick={handlePopulateTestData}>Populate Test Data</Button>
         <Button onClick={() => setShowCalibration(true)}>Start Calibration</Button>

@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 from .models import User, Routine, UserStats
 from .supabase_client import supabase
 from .config import Config
-from .tasks import start_recording_task, start_playback_task, get_recording_status
-from .auth import verify_token
+from .tasks import start_recording_task, start_playback_task, get_recording_status, stop_playback_task, get_dashboard_data
+from . import auth
 from .celery_worker import celery
 import signal
 from celery.result import AsyncResult
@@ -18,29 +18,10 @@ from .player import Player
 # Set up logger
 logger = logging.getLogger(__name__)
 
-bot_routes = Blueprint('bot_routes', __name__)
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        auth_header = request.headers.get('Authorization')
-        if auth_header:
-            try:
-                token = auth_header.split(" ")[1]
-            except IndexError:
-                return jsonify({'message': 'Token is malformed!'}), 401
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 401
-        try:
-            current_user = verify_token(token)
-            if current_user is None:
-                return jsonify({'message': 'Token is invalid!'}), 401
-            return f(current_user, *args, **kwargs)
-        except Exception as e:
-            logger.error(f"Token verification failed: {str(e)}")
-            return jsonify({'message': 'Token is invalid!'}), 401
-    return decorated
+bot_routes = Blueprint('bot_routes', __name__)
 
 @bot_routes.route('/login', methods=['POST', 'OPTIONS'])
 @cross_origin(supports_credentials=True)
@@ -84,50 +65,17 @@ def register():
 
 @bot_routes.route('/dashboard', methods=['GET', 'OPTIONS'])
 @cross_origin(supports_credentials=True)
-@token_required
-def get_dashboard(current_user):
+@auth.token_required
+def dashboard(current_user):
     if request.method == 'OPTIONS':
         return jsonify({}), 200
-    
     try:
-        # Log the current user's ID
-        logging.info(f"Fetching dashboard data for user ID: {current_user.id}")
-        
-        # Fetch user stats
-        user_stats = supabase.table('user_stats').select('*').eq('user_id', str(current_user.id)).execute()
-        logging.info(f"User stats query result: {user_stats}")
-        
-        # If user_stats doesn't exist, create default data
-        if not user_stats.data:
-            logging.info("User stats not found, creating default data")
-            default_stats = {
-                'user_id': str(current_user.id),
-                'total_routine_runs': 0,
-                'total_earnings': 0,
-                'last_run_date': None
-            }
-            insert_result = supabase.table('user_stats').insert(default_stats).execute()
-            logging.info(f"Insert result: {insert_result}")
-            user_stats = supabase.table('user_stats').select('*').eq('user_id', str(current_user.id)).execute()
-
-        # Fetch routines
-        routines = supabase.table('routines').select('*').eq('user_id', str(current_user.id)).execute()
-        logging.info(f"Routines query result: {routines}")
-        
-        dashboard_data = {
-            'totalEarnings': user_stats.data[0]['total_earnings'] if user_stats.data else 0,
-            'earningsHistory': [],  # Implement this based on your data structure
-            'activities': [],  # Implement this based on your data structure
-            'totalRoutineRuns': user_stats.data[0]['total_routine_runs'] if user_stats.data else 0,
-            'lastRunDate': user_stats.data[0].get('last_run_date'),
-            'routines': [{'id': str(r['id']), 'name': r['name'], 'tokens_per_run': r['tokens_per_run']} for r in routines.data] if routines.data else [],
-            'totalTokensGenerated': sum(r['tokens_per_run'] for r in routines.data) if routines.data else 0
-        }
-        
+        logger.debug(f"Fetching dashboard data for user: {current_user.id}")
+        dashboard_data = get_dashboard_data(current_user.id)
         return jsonify(dashboard_data), 200
     except Exception as e:
-        logging.error(f"Error fetching dashboard data: {str(e)}")
-        return jsonify({'message': 'Error fetching dashboard data'}), 500
+        logger.error(f"Error fetching dashboard data: {str(e)}")
+        return jsonify({"error": "An error occurred while fetching dashboard data"}), 500
 
 @bot_routes.route('/run-task', methods=['POST'])
 @cross_origin(supports_credentials=True)
@@ -139,7 +87,7 @@ def test_celery():
     return jsonify({"message": "Celery test functionality is being updated"}), 202
 
 @bot_routes.route('/bot/toggle', methods=['POST'])
-@token_required
+@auth.token_required
 def toggle_bot(current_user):
     try:
         db_user = User.query.filter_by(supabase_uid=current_user['id']).first()
@@ -158,7 +106,7 @@ def toggle_bot(current_user):
         return jsonify({"msg": str(e)}), 500
 
 @bot_routes.route('/routines', methods=['POST'])
-@token_required
+@auth.token_required
 def add_routine(current_user):
     try:
         routine_data = request.json
@@ -176,7 +124,7 @@ def add_routine(current_user):
         return jsonify({"msg": str(e)}), 500
 
 @bot_routes.route('/routines/<int:routine_id>', methods=['PUT'])
-@token_required
+@auth.token_required
 def edit_routine(current_user, routine_id):
     try:
         db_user = User.query.filter_by(supabase_uid=current_user['id']).first()
@@ -202,7 +150,7 @@ def edit_routine(current_user, routine_id):
         return jsonify({"msg": str(e)}), 500
 
 @bot_routes.route('/record', methods=['POST'])
-@token_required
+@auth.token_required
 def record_routine(current_user):
     data = request.json
     logging.info(f"Received record request: {data}")
@@ -224,21 +172,21 @@ def record_routine(current_user):
         return jsonify({"error": str(e)}), 500
 
 @bot_routes.route('/save_routine', methods=['POST'])
-@token_required
+@auth.token_required
 def save_recorded_routine(current_user):
     routine_name = request.json.get('name')
     result = save_routine(routine_name)
     return jsonify({"message": result}), 200
 
 @bot_routes.route('/load_routine', methods=['POST'])
-@token_required
+@auth.token_required
 def load_saved_routine(current_user):
     routine_name = request.json.get('name')
     result = load_routine(routine_name)
     return jsonify({"message": result}), 200
 
 @bot_routes.route('/playback', methods=['POST'])
-@token_required
+@auth.token_required
 def playback_saved_routine(current_user):
     routine_name = request.json.get('name')
     if not routine_name:
@@ -252,14 +200,14 @@ def playback_saved_routine(current_user):
         return jsonify({"error": str(e)}), 500
 
 @bot_routes.route('/translate_headless', methods=['POST'])
-@token_required
+@auth.token_required
 def translate_routine_to_headless(current_user):
     routine_name = request.json.get('name')
     result = translate_to_headless(routine_name)
     return jsonify({"message": result}), 200
 
 @bot_routes.route('/populate_test_data', methods=['POST'])
-@token_required
+@auth.token_required
 def populate_test_data(current_user):
     try:
         # Create user stats if not exists
@@ -285,29 +233,8 @@ def populate_test_data(current_user):
         logging.error(f"Error populating test data: {str(e)}")
         return jsonify({'message': 'Error populating test data'}), 500
 
-@bot_routes.route('/cancel_recording', methods=['POST'])
-@token_required
-def cancel_recording(current_user):
-    task_id = request.json.get('task_id')
-    if not task_id:
-        return jsonify({"error": "Task ID is required"}), 400
-    
-    # Use SIGTERM instead of SIGKILL
-    celery.control.revoke(task_id, terminate=True, signal='SIGTERM')
-    
-    # Delete the routine data if it exists
-    routine_name = request.json.get('routine_name')
-    if routine_name:
-        try:
-            supabase.table('routines').delete().eq('name', routine_name).eq('user_id', str(current_user.id)).execute()
-            logging.info(f"Deleted routine: {routine_name}")
-        except Exception as e:
-            logging.error(f"Failed to delete routine: {str(e)}")
-    
-    return jsonify({"message": "Recording cancelled successfully"}), 200
-
 @bot_routes.route('/recording-status/<task_id>', methods=['GET'])
-@token_required
+@auth.token_required
 def get_recording_status(current_user, task_id):
     try:
         task = AsyncResult(task_id)
@@ -325,7 +252,7 @@ def get_recording_status(current_user, task_id):
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @bot_routes.route('/calibrate', methods=['POST'])
-@token_required
+@auth.token_required
 def calibrate(current_user):
     calibration_data = request.json.get('calibration_data')
     calibration_type = request.json.get('type')
@@ -369,17 +296,17 @@ def calibrate(current_user):
         return jsonify({"error": f"Failed to save calibration data: {str(e)}"}), 500
 
 @bot_routes.route('/recorder_calibration')
-@token_required
+@auth.token_required
 def recorder_calibration(current_user):
     return render_template('recorder_calibration.html')
 
 @bot_routes.route('/player_calibration')
-@token_required
+@auth.token_required
 def player_calibration(current_user):
     return render_template('player_calibration.html')
 
 @bot_routes.route('/get_calibration_points', methods=['GET'])
-@token_required
+@auth.token_required
 def get_calibration_points(current_user):
     calibration_points = [
         {"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0},
@@ -389,7 +316,7 @@ def get_calibration_points(current_user):
     return jsonify(calibration_points)
 
 @bot_routes.route('/api/start_recorder_calibration', methods=['POST'])
-@token_required
+@auth.token_required
 def start_recorder_calibration(current_user):
     try:
         logger.info(f"Starting recorder calibration for user {current_user.id}")
@@ -402,7 +329,7 @@ def start_recorder_calibration(current_user):
         return jsonify({"error": str(e)}), 500
 
 @bot_routes.route('/api/start_player_calibration', methods=['POST'])
-@token_required
+@auth.token_required
 def start_player_calibration(current_user):
     try:
         logger.info(f"Starting player calibration for user {current_user.id}")
@@ -412,4 +339,75 @@ def start_player_calibration(current_user):
         return jsonify({"message": "Player calibration started"}), 200
     except Exception as e:
         logger.error(f"Error starting player calibration for user {current_user.id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@bot_routes.route('/start_playback', methods=['POST', 'OPTIONS'])
+@cross_origin(supports_credentials=True)
+@auth.token_required
+def start_playback(current_user):
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+    
+    data = request.json
+    routine_name = data.get('name')
+    repeat_indefinitely = data.get('repeat_indefinitely', False)
+    
+    if not routine_name:
+        return jsonify({"error": "Routine name is required"}), 400
+    
+    try:
+        # Pass user_id as a string, it will be converted to UUID in the task
+        task = start_playback_task.apply_async(args=[routine_name, str(current_user.id), repeat_indefinitely])
+        return jsonify({
+            "message": f"Playback task started for routine: {routine_name}",
+            "task_id": task.id,
+            "routine_name": routine_name
+        }), 202
+    except Exception as e:
+        logger.error(f"Error starting playback: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@bot_routes.route('/stop_playback', methods=['POST'])
+@auth.token_required
+def stop_playback(current_user):
+    data = request.json
+    task_id = data.get('task_id')
+    
+    if not task_id:
+        return jsonify({"error": "Task ID is required"}), 400
+    
+    try:
+        result = stop_playback_task.delay(task_id)
+        return jsonify({"message": "Stop request sent successfully"}), 202
+    except Exception as e:
+        logger.error(f"Error stopping playback: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@bot_routes.route('/routines/<routine_id>', methods=['DELETE'])
+@cross_origin(supports_credentials=True)
+@auth.token_required
+def delete_routine(current_user, routine_id):
+    try:
+        logger.info(f"Attempting to delete routine {routine_id} for user {current_user.id}")
+        
+        # First, check if the routine exists and belongs to the current user
+        routine = supabase.table('routines').select('*').eq('id', routine_id).eq('user_id', current_user.id).single().execute()
+        logger.info(f"Routine query result: {routine}")
+        
+        if not routine.data:
+            logger.warning(f"Routine not found or user doesn't have permission: {routine_id}")
+            return jsonify({"error": "Routine not found or you don't have permission to delete it"}), 404
+        
+        # If the routine exists and belongs to the user, delete it
+        result = supabase.table('routines').delete().eq('id', routine_id).eq('user_id', current_user.id).execute()
+        logger.info(f"Delete operation result: {result}")
+        
+        if result.data:
+            logger.info(f"Routine deleted successfully: {routine_id}")
+            return jsonify({"message": "Routine deleted successfully"}), 200
+        else:
+            logger.error(f"Failed to delete routine: {routine_id}")
+            return jsonify({"error": "Failed to delete routine"}), 500
+    except Exception as e:
+        logger.error(f"Error deleting routine {routine_id}: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500

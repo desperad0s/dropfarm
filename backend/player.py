@@ -13,12 +13,14 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class Player:
-    def __init__(self, routine_name, actions):
+    def __init__(self, routine_name, actions, repeat_indefinitely=False):
         self.routine_name = routine_name
         self.actions = actions
         self.driver = None
         self.start_time = None
         self.is_playing = False
+        self.repeat_indefinitely = repeat_indefinitely
+        self.stop_requested = False
 
     def start(self):
         chrome_options = Options()
@@ -95,14 +97,21 @@ class Player:
             logger.warning("No actions to play")
             return
 
-        for action in self.actions['actions']:
-            if not self.is_playing:
+        while self.is_playing and (self.repeat_indefinitely or not self.stop_requested):
+            for action in self.actions['actions']:
+                if self.stop_requested:
+                    break
+                self.wait_for_action_time(action['time'])
+                if action['type'] == 'click':
+                    self.perform_click(action['x'], action['y'])
+            
+            if not self.repeat_indefinitely:
                 break
-            self.wait_for_action_time(action['time'])
-            if action['type'] == 'click':
-                self.perform_click(action['x'], action['y'])
+            
+            # Reset start time for next iteration
+            self.start_time = time.time()
 
-        logger.info("Playback completed")
+        logger.info("Playback completed or stopped")
         self.driver.execute_script("document.getElementById('playback-status').innerHTML = 'Playback completed';")
 
     def wait_for_action_time(self, action_time):
@@ -138,12 +147,13 @@ class Player:
         self.driver.execute_script(js_code, x, y)
 
     def stop(self):
+        self.stop_requested = True
         self.is_playing = False
         if self.driver:
             self.driver.quit()
         logger.info(f"Stopped playback for routine: {self.routine_name}")
 
-def start_playback(routine_name, actions):
-    player = Player(routine_name, actions)
+def start_playback(routine_name, actions, repeat_indefinitely=False):
+    player = Player(routine_name, actions, repeat_indefinitely)
     player.start()
-    return True
+    return player
