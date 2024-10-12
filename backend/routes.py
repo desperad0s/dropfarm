@@ -1,5 +1,5 @@
 import logging
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 from flask_cors import cross_origin
 from functools import wraps
 from datetime import datetime, timedelta
@@ -12,6 +12,8 @@ from .celery_worker import celery
 import signal
 from celery.result import AsyncResult
 import json
+from .recorder import Recorder
+from .player import Player
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -211,7 +213,7 @@ def record_routine(current_user):
         return jsonify({"error": "Routine name and tokens per run are required"}), 400
     
     try:
-        task = start_recording_task.delay(routine_name, tokens_per_run, str(current_user.id))
+        task = start_recording_task.apply_async(args=[routine_name, tokens_per_run, str(current_user.id)], expires=600)
         return jsonify({
             "message": f"Recording task started for routine: {routine_name}",
             "task_id": task.id,
@@ -326,35 +328,88 @@ def get_recording_status(current_user, task_id):
 @token_required
 def calibrate(current_user):
     calibration_data = request.json.get('calibration_data')
-    if not calibration_data:
-        return jsonify({"error": "Calibration data is required"}), 400
+    calibration_type = request.json.get('type')
+    aspect_ratio = request.json.get('aspect_ratio')
+    if not calibration_data or not calibration_type:
+        logging.error(f"Missing calibration data or type: data={calibration_data}, type={calibration_type}")
+        return jsonify({"error": "Calibration data and type are required"}), 400
     
     try:
-        # Ensure user_id is a string
         user_id = str(current_user.id)
+        logging.info(f"Calibrating for user {user_id}, type: {calibration_type}")
         
-        logging.info(f"Attempting to save calibration data for user ID: {user_id}")
-        logging.info(f"Calibration data: {calibration_data}")
+        # Fetch existing calibration data
+        existing_calibration = supabase.table('user_calibrations').select('*').eq('user_id', user_id).execute()
+        logging.info(f"Existing calibration data: {existing_calibration.data}")
         
-        # Check if a record already exists
-        existing_record = supabase.table('user_calibrations').select('*').eq('user_id', user_id).execute()
+        update_data = {
+            'user_id': user_id,
+            'updated_at': 'now()',
+            f'{calibration_type}_calibration': json.dumps(calibration_data),
+            'calibration_data': json.dumps({calibration_type: calibration_data})  # Add this line
+        }
         
-        if existing_record.data:
-            # Update existing record
-            result = supabase.table('user_calibrations').update({
-                'calibration_data': json.dumps(calibration_data),
-                'updated_at': 'now()'
-            }).eq('user_id', user_id).execute()
-        else:
-            # Insert new record
-            result = supabase.table('user_calibrations').insert({
-                'user_id': user_id,
-                'calibration_data': json.dumps(calibration_data)
-            }).execute()
+        # If there's existing data, merge it with the new data
+        if existing_calibration.data:
+            existing_data = existing_calibration.data[0]  # Get the first (and should be only) row
+            existing_calibration_data = json.loads(existing_data.get('calibration_data', '{}'))
+            existing_calibration_data[calibration_type] = calibration_data
+            update_data['calibration_data'] = json.dumps(existing_calibration_data)
         
-        logging.info(f"Supabase operation result: {result}")
+        if aspect_ratio is not None:
+            update_data['aspect_ratio'] = aspect_ratio
         
-        return jsonify({"message": "Calibration data saved successfully"}), 200
+        logging.info(f"Updating calibration data: {update_data}")
+        result = supabase.table('user_calibrations').upsert(update_data).execute()
+        logging.info(f"Calibration update result: {result}")
+        
+        return jsonify({"message": f"{calibration_type.capitalize()} calibration data saved successfully"}), 200
     except Exception as e:
         logging.error(f"Error saving calibration data: {str(e)}")
         return jsonify({"error": f"Failed to save calibration data: {str(e)}"}), 500
+
+@bot_routes.route('/recorder_calibration')
+@token_required
+def recorder_calibration(current_user):
+    return render_template('recorder_calibration.html')
+
+@bot_routes.route('/player_calibration')
+@token_required
+def player_calibration(current_user):
+    return render_template('player_calibration.html')
+
+@bot_routes.route('/get_calibration_points', methods=['GET'])
+@token_required
+def get_calibration_points(current_user):
+    calibration_points = [
+        {"x": 0, "y": 0}, {"x": 0.5, "y": 0}, {"x": 1, "y": 0},
+        {"x": 0, "y": 0.5}, {"x": 0.5, "y": 0.5}, {"x": 1, "y": 0.5},
+        {"x": 0, "y": 1}, {"x": 0.5, "y": 1}, {"x": 1, "y": 1}
+    ]
+    return jsonify(calibration_points)
+
+@bot_routes.route('/api/start_recorder_calibration', methods=['POST'])
+@token_required
+def start_recorder_calibration(current_user):
+    try:
+        logger.info(f"Starting recorder calibration for user {current_user.id}")
+        recorder = Recorder("calibration")
+        recorder.perform_recorder_calibration()
+        logger.info(f"Recorder calibration completed for user {current_user.id}")
+        return jsonify({"message": "Recorder calibration started"}), 200
+    except Exception as e:
+        logger.error(f"Error starting recorder calibration for user {current_user.id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@bot_routes.route('/api/start_player_calibration', methods=['POST'])
+@token_required
+def start_player_calibration(current_user):
+    try:
+        logger.info(f"Starting player calibration for user {current_user.id}")
+        player = Player("calibration")
+        player.perform_player_calibration()
+        logger.info(f"Player calibration completed for user {current_user.id}")
+        return jsonify({"message": "Player calibration started"}), 200
+    except Exception as e:
+        logger.error(f"Error starting player calibration for user {current_user.id}: {str(e)}")
+        return jsonify({"error": str(e)}), 500

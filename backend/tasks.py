@@ -1,5 +1,6 @@
 from .celery_worker import celery
-from .recorder import start_recording, start_playback
+from .recorder import start_recording
+from .player import start_playback
 from .supabase_client import supabase
 import json
 import logging
@@ -19,37 +20,46 @@ def get_recording_status(user_id, routine_name):
 
 @celery.task(bind=True, name='backend.tasks.start_recording_task', max_retries=0, soft_time_limit=600, time_limit=610)
 def start_recording_task(self, routine_name, tokens_per_run, user_id):
-    update_recording_status(user_id, routine_name, "started")
-    logger.info(f"Starting recording task for routine: {routine_name}")
     try:
-        calibration_data = get_user_calibration_data(user_id)
-        logger.info(f"Calibration data retrieved: {calibration_data}")
-        result = start_recording(routine_name, calibration_data)
+        logger.info(f"Starting recording task for routine: {routine_name}")
+        result = start_recording(routine_name)
         logger.info(f"Recording result: {result}")
-        if result and result['actions']:
+        if result and result.get('actions'):
             sanitized_result = sanitize_data(result)
             try:
-                insert_result = supabase.table('routines').insert({
-                    'name': routine_name,
-                    'user_id': user_id,
-                    'steps': json.dumps(sanitized_result),
-                    'tokens_per_run': tokens_per_run
-                }).execute()
-                logger.info(f"Routine saved to database: {insert_result}")
-                update_recording_status(user_id, routine_name, "completed")
+                # Check if the routine already exists
+                existing_routine = supabase.table('routines').select('*').eq('name', routine_name).eq('user_id', user_id).execute()
+                
+                if existing_routine.data:
+                    # Update existing routine
+                    update_result = supabase.table('routines').update({
+                        'steps': json.dumps(sanitized_result),
+                        'tokens_per_run': tokens_per_run,
+                        'updated_at': 'now()'
+                    }).eq('name', routine_name).eq('user_id', user_id).execute()
+                    logger.info(f"Routine updated in database: {update_result}")
+                else:
+                    # Insert new routine
+                    insert_result = supabase.table('routines').insert({
+                        'name': routine_name,
+                        'user_id': user_id,
+                        'steps': json.dumps(sanitized_result),
+                        'tokens_per_run': tokens_per_run
+                    }).execute()
+                    logger.info(f"New routine saved to database: {insert_result}")
+                
                 return f"Recording completed for routine: {routine_name}"
             except Exception as e:
                 logger.error(f"Failed to save routine: {str(e)}")
-                delete_routine(routine_name)
                 raise
         else:
             logger.warning(f"No actions recorded for routine: {routine_name}")
-            delete_routine(routine_name)
             return f"No actions recorded for routine: {routine_name}"
+    except SoftTimeLimitExceeded:
+        logger.error(f"Recording task timed out for routine: {routine_name}")
+        return f"Recording task timed out for routine: {routine_name}"
     except Exception as e:
-        update_recording_status(user_id, routine_name, "failed")
-        logger.error(f"Error during recording: {str(e)}", exc_info=True)
-        delete_routine(routine_name)
+        logger.error(f"Error during recording: {str(e)}")
         raise
 
 def delete_routine(routine_name):
@@ -81,7 +91,6 @@ def run_routine(self, routine_id, user_id):
 def start_playback_task(self, routine_name, user_id):
     logging.info(f"Starting playback for routine: {routine_name}")
     try:
-        calibration_data = get_user_calibration_data(user_id)
         routines = supabase.table('routines').select('*').eq('name', routine_name).eq('user_id', user_id).execute()
         if not routines.data:
             return f"Routine not found: {routine_name}"
@@ -95,7 +104,7 @@ def start_playback_task(self, routine_name, user_id):
         recorded_data = json.loads(routine['steps'])
         logging.info(f"Loaded {len(recorded_data['actions'])} actions for playback")
         
-        result = start_playback(routine_name, recorded_data, calibration_data)
+        result = start_playback(routine_name, recorded_data)
         
         if result:
             logging.info(f"Playback completed for routine: {routine_name}")
@@ -109,12 +118,18 @@ def start_playback_task(self, routine_name, user_id):
 
 def get_user_calibration_data(user_id):
     try:
-        calibration = supabase.table('user_calibrations').select('calibration_data').eq('user_id', user_id).single().execute()
+        calibration = supabase.table('user_calibrations').select('*').eq('user_id', user_id).order('updated_at', desc=True).limit(1).execute()
         if calibration.data:
-            return json.loads(calibration.data['calibration_data'])
+            calibration_data = calibration.data[0]
+            return {
+                'browser': json.loads(calibration_data.get('browser_calibration') or '[]'),
+                'recorder': json.loads(calibration_data.get('recorder_calibration') or '[]'),
+                'player': json.loads(calibration_data.get('player_calibration') or '[]'),
+                'aspect_ratio': calibration_data.get('aspect_ratio')
+            }
         else:
-            logging.warning(f"No calibration data found for user {user_id}")
+            logger.warning(f"No calibration data found for user {user_id}")
             return None
     except Exception as e:
-        logging.error(f"Error retrieving calibration data: {str(e)}")
+        logger.error(f"Error retrieving calibration data: {str(e)}")
         return None

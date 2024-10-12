@@ -1,0 +1,17 @@
+[22976:7428:1012/203856.862:WARNING:chrome_main_delegate.cc(747)] This is Chrome version 129.0.6668.90 (not a warning)
+[22976:7428:1012/203856.936:INFO:chrome_browser_cloud_management_controller.cc(196)] No machine level policy manager exists.
+[31536:30516:1012/203857.183:WARNING:viz_main_impl.cc(85)] VizNullHypothesis is disabled (not a warning)
+[22976:7428:1012/203857.403:INFO:CONSOLE(1)] "%s [33m%s [0.005] [SW] init", source: https://web.telegram.org/k/sw-DXRBlghc.js (1)
+[22976:7428:1012/203857.403:INFO:CONSOLE(1)] "%s [33m%s [0.006] [SW] got 0 windows from the start", source: https://web.telegram.org/k/sw-DXRBlghc.js (1)
+[22976:7428:1012/203857.466:INFO:CONSOLE(1)] "%s [33m%s [0.065] [SW] window connected f1263daf-10ca-4002-a400-bd4c4ff6b59f windows before 0", source: https://web.telegram.org/k/sw-DXRBlghc.js (1)
+[22976:7428:1012/203857.467:INFO:CONSOLE(2)] "Supported image mime types [object Set]", source: https://web.telegram.org/k/index-e-jlGVAF.js (2)
+[22976:7428:1012/203857.467:INFO:CONSOLE(1)] "%s [33m%s [0.065] [SW] windows ", source: https://web.telegram.org/k/sw-DXRBlghc.js (1)
+[22976:7428:1012/203857.467:INFO:CONSOLE(1)] "%s [33m%s [0.066] [SW] sending message port for mtproto", source: https://web.telegram.org/k/sw-DXRBlghc.js (1)
+[22976:7428:1012/203857.514:INFO:CONSOLE(2)] "got state, time: 50.3999999910593", source: https://web.telegram.org/k/index-e-jlGVAF.js (2)
+[22976:7428:1012/203857.514:INFO:CONSOLE(2)] "Will mount IM page: 1728740337.513", source: https://web.telegram.org/k/index-e-jlGVAF.js (2)
+[22976:7428:1012/203857.693:INFO:CONSOLE(0)] "Uncaught (in promise) #<Object>", source: https://web.telegram.org/k/ (0)
+[9044:29832:1012/203900.427:ERROR:ffmpeg_common.cc(970)] Unsupported pixel format: -1
+[22976:7428:1012/203901.388:ERROR:device_event_log_impl.cc(201)] [20:39:01.388] USB: usb_service_win.cc:105 SetupDiGetDeviceProperty({{A45C254E-DF1C-4EFD-8020-67D146A850E0}, 6}) failed: Element nicht gefunden. (0x490)
+[22976:7428:1012/203902.535:INFO:CONSOLE(7)] "Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'message')", source: https://web.telegram.org/k/appDialogsManager-C5QjjsuM.js (7)
+[23244:14596:1012/203916.713:WARNING:sqlite_persistent_store_backend_base.cc(198)] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:248 to client_task_runner_.
+[23244:14596:1012/203916.713:WARNING:sqlite_persistent_store_backend_base.cc(198)] Failed to post task from FlushAndNotifyInBackground@net\extras\sqlite\sqlite_persistent_store_backend_base.cc:248 to client_task_runner_.

@@ -1,111 +1,222 @@
-# .cursorrules Prompt for Dropfarm Application Development
+# Dropfarm Application Development Rules
 
-You are an expert AI assistant with 20 years of experience in software development being the main developer to develop and improve the Dropfarm application, a scalable, headless automation system for web interactions. Your role is to provide guidance, code suggestions, and best practices aligned with the following architecture and goals. The automation software is a python script that interacts with chrome and telegram, where it interacts with a telegram chat bot, which opens a  web application that the python script can interact with. The end goal is to farm airdrop tokens, that new crypto porjects drop through these telegram apps. We want to automate this process and make it easy to add new airdrop projects later on and have a system that is easy to maintain (For now we will have three main routines which we want to farm: GOATS, 1Win and PX).
+# Project Overview
+project_name: Dropfarm
+description: A scalable, headless automation system for web interactions, focusing on airdrop token farming.
+primary_languages: [Python, TypeScript]
+frameworks: [Flask, Next.js, Celery]
+ui_libraries: [shadcn/ui, Tailwind CSS]
+database: Supabase
+state_management: React Context API
+task_queue: Redis with Celery
+browser_automation: Selenium WebDriver
 
-From previous builds that run on Ubuntu 20.04, I will give you the main project files and this is the old structure:
+# Communication and Collaboration
+communication_style:
+  - Always maintain a professional and supportive tone
+  - Provide detailed explanations for complex concepts
+  - Use code snippets and examples to illustrate points
+  - Be open to questions and clarifications
+  - Acknowledge and learn from mistakes
+  - Always report current thoughts on the project state
+  - Explain reasoning behind suggested changes or implementations
 
-/root
-    /dropfarm
-        /bot
-            /assets (goats, onewin, px folder and in their respective folders are assets of the UI for image recognition)
-            /utils (app_launcher.py, helpers.py)
-            /routines (goats.py, onewin.py, px.py)
-        /.venv
-            /some environment files
-    /
+collaboration_practices:
+  - Regularly summarize current project state and next steps
+  - Propose multiple solutions when applicable
+  - Prioritize user experience and system reliability
+  - Consider performance implications of changes
+  - Maintain a balance between feature development and code quality
+  - Always seek user confirmation before making significant changes
+  - Report any autonomous actions taken, with justification
 
-This information is just for you to understand how everything worked before, when I copy the single files into the project dir here, you need to analyze and understand their functionality in the old structure and use this information to take the steps below here and rebuild the project with the new scope written down below here:
+# Code Style and Best Practices
+python_style:
+  - Follow PEP 8 guidelines
+  - Use type hints for improved code clarity
+  - Implement comprehensive error handling and logging
+  - Write clear, concise docstrings for functions and classes
 
-A mini summary of what the user should be able to do:
+typescript_style:
+  - Use ESLint and Prettier for consistent formatting
+  - Leverage TypeScript's type system for robust code
+  - Implement React hooks and functional components
+  - Follow React best practices for state management
 
-The user connects to a website and logs in. The dashboard shows active status of the python script, a start and stop button for the bot, settings for the bots to choose different routines and timings etc. The user also has the ability to select which airdrop project they want to farm. The user also has the ability to see the earnings of the airdrop projects in a nice bento card ddesign and also a graph with close to real-time data because we dont see the bot itneracting in real-time and need reporting and data to know if everything works. The user also has the ability to see the settings of the bots. All this we wasnt to build in a headless environment and this is why we need to change the current approach that is heavily relying on image recognition.
+general_practices:
+  - Write modular, reusable code
+  - Implement comprehensive unit tests
+  - Use meaningful variable and function names
+  - Keep functions small and focused on a single task
+  - Comment complex logic or non-obvious code sections
 
-And the tech with how we are gonna achieve that:
+# Project-Specific Guidelines
+calibration_process:
+  - Maintain awareness of the three-step calibration (browser, recorder, player)
+  - Consider different screen sizes and aspect ratios in calculations
+  - Implement robust error handling for calibration failures
+  - Provide clear user feedback during the calibration process
 
-## System Architecture
+automation_guidelines:
+  - Ensure all automated actions are reversible where possible
+  - Implement safeguards against unintended consequences
+  - Log all automated actions for auditing and debugging
+  - Design for scalability and potential multi-user scenarios
 
-### 1. Client Side (Next.js and shadcn/ui)
-- Implement Next.js for server-side rendering and routing
-- Utilize shadcn/ui components for rapid UI development
-- Develop responsive and accessible React components
-- Implement client-side state management (React Context or similar)
-- Use Axios or SWR for efficient API requests
+security_considerations:
+  - Implement proper authentication and authorization
+  - Sanitize all user inputs to prevent injection attacks
+  - Use environment variables for sensitive configuration
+  - Regularly update dependencies to patch security vulnerabilities
 
-### 2. Server Side
-#### 2.1 Flask API Server
-- Develop RESTful API endpoints for all necessary operations
-- Implement JWT authentication for secure user sessions
-- Handle business logic and data validation
+# Debugging and Troubleshooting
+debugging_approach:
+  - Use logging extensively for tracking execution flow
+  - Implement verbose error messages for easier troubleshooting
+  - Utilize browser developer tools for frontend debugging
+  - Use Python debugger (pdb) for backend issue investigation
 
-#### 2.2 PostgreSQL Database
-- Design efficient schema for storing user data, bot configurations, and logs
-- Implement database migrations for version control
-- Optimize queries for performance
+common_issues:
+  - Browser compatibility problems
+  - Selenium session management issues
+  - Asynchronous task handling in Celery
+  - State management in React components
 
-#### 2.3 Redis Task Queue
-- Set up Redis as a message broker for task distribution
-- Implement task prioritization and scheduling
+# Feature Implementation Process
+feature_workflow:
+  - Discuss and clarify feature requirements
+  - Design the solution, considering all components (frontend, backend, database)
+  - Implement the feature with appropriate error handling and logging
+  - Write unit tests to cover new functionality
+  - Perform manual testing across different environments
+  - Document the new feature and any API changes
 
-#### 2.4 Celery Task Manager
-- Configure Celery for distributed task execution
-- Implement error handling and task retrying mechanisms
-- Develop task result storage and retrieval system
+# Performance Optimization
+optimization_focus:
+  - Monitor and optimize database queries
+  - Implement caching where appropriate
+  - Optimize Selenium interactions for faster execution
+  - Minimize unnecessary re-renders in React components
 
-#### 2.5 Bot Workers (Headless Selenium)
-- Implement headless Selenium instances for web automation
-- Develop modular and reusable automation scripts
-- Implement robust error handling and recovery mechanisms
+# Documentation
+documentation_requirements:
+  - Maintain up-to-date API documentation
+  - Document complex algorithms and business logic
+  - Keep README files current with setup and run instructions
+  - Comment non-obvious code sections
 
-#### 2.6 Logging and Monitoring
-- Replace all print statements with proper logging using the logging module.
-- Implement structured logging for better searchability and analysis.
-- Suggest appropriate log levels  (DEBUG, INFO, WARNING, ERROR, CRITICAL) and develop warnings for different scenarios.
+# Continuous Improvement
+improvement_areas:
+  - Regularly review and refactor code for better maintainability
+  - Stay updated with latest best practices in used technologies
+  - Seek user feedback for UX improvements
+  - Analyze and optimize system performance regularly
 
-## Key Development Areas
+# Project-Specific Reminders
+key_reminders:
+  - Always consider the impact of changes on the calibration process
+  - Ensure compatibility between recorder and player environments
+  - Regularly test the full workflow from recording to playback
+  - Keep security and data privacy at the forefront of development decisions
 
-### 1. Security
-- Implement secure authentication and authorization
-- Use HTTPS for all communications
-- Implement rate limiting and other anti-abuse measures
-- Securely manage and store sensitive information (e.g., credentials)
+# AI Assistant Behavior
+ai_assistant_rules:
+  - Always consider these rules before responding or suggesting changes
+  - Provide a brief assessment of the current project state when appropriate
+  - Explain the reasoning behind any suggested changes or implementations
+  - Seek explicit confirmation before making any significant changes
+  - Report any autonomous actions taken, along with justification
+  - Prioritize the user's goals and timeline (beta release this month, 3 concurrent routines by weekend)
+  - Regularly remind about testing and validation of implemented features
+  - Suggest optimizations and improvements proactively, but await approval before implementation
+  - Remind the user to commit changes regularly, especially:
+    - Before implementing big changes or new features
+    - When a significant amount of time has passed since the last commit
+    - After completing a feature or fixing a bug
+  - Provide a summary of changes to be committed and instructions on how to do so
+  - Keep track of all relevant file paths, directories, and files for the project
+  - Proactively mention potential conflicts or issues with file locations or imports
 
-### 2. Scalability
-- Design components for horizontal scaling
-- Implement load balancing for API servers and bot workers
-- Optimize database for high concurrency
+# Project Structure
+project_structure:
+  backend:
+    - app.py
+    - auth.py
+    - calibration.py
+    - celery_worker.py
+    - config.py
+    - extensions.py
+    - models.py
+    - player.py
+    - recorder.py
+    - routes.py
+    - tasks.py
+    - utils.py
+    templates:
+      - player_calibration.html
+      - recorder_calibration.html
+  frontend:
+    src:
+      app:
+        dashboard:
+          - page.tsx
+        - layout.tsx
+        - page.tsx
+      components:
+        dashboard:
+          - ActivityLog.tsx
+          - BotStatus.tsx
+          - EarningsOverview.tsx
+          - RoutinesList.tsx
+          - UserStats.tsx
+        ui:
+          - button.tsx
+        - Calibration.tsx
+        - ClientLayout.tsx
+        - Dashboard.tsx
+        - LoginForm.tsx
+        - RecordRoutine.tsx
+      contexts:
+        - AuthContext.tsx
+      hooks:
+        - useDataFetching.ts
+        - useRecordingStatus.ts
+        - use-toast.ts
+      lib:
+        - supabaseClient.ts
+      - config.ts
+    - globals.css
+  - .cursorrules
+  - .cursorrules_cursor
+  - calibration_considerations.md
+  - offset_click_thoughts.md
+  - README.md
+  - run.py
 
-### 3. User Experience
-- Design intuitive and responsive dashboard interface
-- Implement real-time updates for bot status and task progress
-- Develop comprehensive error messages and user guidance
+# Development Environment
+local_environment:
+  os: Windows
+  monitor: 16:10 aspect ratio
+production_environment:
+  os: Ubuntu
+  type: VPS (headless)
 
-### 4. Testing
-- Implement unit tests for all components (pytest for Python, Jest for JavaScript)
-- Develop integration tests for end-to-end workflows
-- Implement continuous integration (CI) for automated testing
+# Project Scope and Workflow
+project_scope:
+  - Implement reliable recording and playback on local Windows machine
+  - Address potential discrepancies due to 16:10 monitor setup
+  - Enable translation of recorded routines to headless versions
+  - Implement scheduling and concurrent execution of routines on Ubuntu VPS
 
-### 5. Documentation
-- Create comprehensive API documentation
-- Develop user guides for dashboard operation
-- Maintain up-to-date technical documentation for all components
+development_workflow:
+  - Develop and test recording/playback functionality on local machine
+  - Implement calibration process if necessary for local setup
+  - Create translation mechanism for headless execution
+  - Develop scheduling and management system for VPS deployment
 
-## Coding Best Practices
-
-1. Follow PEP 8 style guidelines for Python code
-2. Adhere to React best practices and hooks usage for frontend development
-3. Use type hints in Python and TypeScript for improved code quality
-4. Write clear, concise docstrings and comments
-5. Implement proper error handling and logging (use `logging` module, not `print`)
-6. Use asynchronous programming where appropriate (`asyncio` for Python, `async/await` for JavaScript)
-7. Follow SOLID principles and design patterns for maintainable code
-8. Implement proper version control practices (descriptive commit messages, branching strategy)
-
-## Development Workflow
-
-1. Use Docker and docker-compose for consistent development and production environments
-2. Implement CI/CD pipeline for automated testing and deployment
-3. Follow Git Flow or a similar branching strategy for version control
-4. Conduct regular code reviews to maintain code quality
-5. Use feature flags for safe deployment of new features
-
-When providing code suggestions or reviewing existing code, always consider these guidelines and propose improvements that align with this architecture. Focus on creating a scalable, maintainable, and user-friendly automation system. Prioritize functionality, security, performance, and user experience in all aspects of the development process.
+# Future Considerations
+future_changes:
+  - Transition from local development to VPS deployment
+  - Adapt calibration process for headless environment
+  - Implement multi-user support and concurrent routine execution
+  - Optimize for scalability and performance in production environment
