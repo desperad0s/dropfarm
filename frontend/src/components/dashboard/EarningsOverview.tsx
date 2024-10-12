@@ -12,10 +12,11 @@ export function EarningsOverview({ totalEarnings, earningsHistory, totalTokensGe
       <CardHeader>
         <CardTitle>Earnings Overview</CardTitle>
       </CardHeader>
-      <CardContent>
-        <p>Total Earnings: ${totalEarnings.toFixed(2)}</p>
-        <p>Total Tokens Generated: {totalTokensGenerated}</p>
-        {/* Add more detailed breakdown or chart here */}
+      <CardContent className="space-y-2">
+        <p className="text-2xl font-bold">${totalEarnings.toFixed(2)}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Total Earnings</p>
+        <p className="text-lg">{totalTokensGenerated}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Total Tokens Generated</p>
       </CardContent>
     </Card>
   )

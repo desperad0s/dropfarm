@@ -371,14 +371,18 @@ def start_playback(current_user):
 @auth.token_required
 def stop_playback(current_user):
     data = request.json
-    task_id = data.get('task_id')
+    routine_name = data.get('name')
     
-    if not task_id:
-        return jsonify({"error": "Task ID is required"}), 400
+    if not routine_name:
+        return jsonify({"error": "Routine name is required"}), 400
     
     try:
-        result = stop_playback_task.delay(task_id)
-        return jsonify({"message": "Stop request sent successfully"}), 202
+        task_id = celery.backend.get(f'playback_task:{current_user.id}:{routine_name}')
+        if task_id:
+            result = stop_playback_task.delay(task_id)
+            return jsonify({"message": "Stop request sent successfully"}), 202
+        else:
+            return jsonify({"error": "No active playback found for the given routine"}), 404
     except Exception as e:
         logger.error(f"Error stopping playback: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -410,4 +414,25 @@ def delete_routine(current_user, routine_id):
             return jsonify({"error": "Failed to delete routine"}), 500
     except Exception as e:
         logger.error(f"Error deleting routine {routine_id}: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@bot_routes.route('/playback_status/<routine_name>', methods=['GET'])
+@auth.token_required
+def get_playback_status(current_user, routine_name):
+    try:
+        task_id = celery.backend.get(f'playback_task:{current_user.id}:{routine_name}')
+        if task_id:
+            task = AsyncResult(task_id)
+            if task.state == 'PENDING':
+                return jsonify({"status": "in_progress"}), 200
+            elif task.state == 'SUCCESS':
+                return jsonify({"status": "completed"}), 200
+            elif task.state == 'FAILURE':
+                return jsonify({"status": "failed"}), 200
+            else:
+                return jsonify({"status": "unknown"}), 200
+        else:
+            return jsonify({"status": "stopped"}), 200
+    except Exception as e:
+        logger.error(f"Error getting playback status: {str(e)}")
         return jsonify({"error": str(e)}), 500

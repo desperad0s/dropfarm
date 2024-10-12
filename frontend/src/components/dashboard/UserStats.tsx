@@ -12,10 +12,19 @@ export function UserStats({ totalRoutineRuns, lastRunDate, totalTokensGenerated 
       <CardHeader>
         <CardTitle>User Stats</CardTitle>
       </CardHeader>
-      <CardContent>
-        <p>Total Routine Runs: {totalRoutineRuns}</p>
-        <p>Last Run Date: {lastRunDate}</p>
-        <p>Total Tokens Generated: {totalTokensGenerated}</p>
+      <CardContent className="space-y-2">
+        <div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Total Routine Runs</p>
+          <p className="text-2xl font-bold">{totalRoutineRuns}</p>
+        </div>
+        <div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Last Run Date</p>
+          <p className="text-lg">{new Date(lastRunDate).toLocaleDateString()}</p>
+        </div>
+        <div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Total Tokens Generated</p>
+          <p className="text-2xl font-bold">{totalTokensGenerated}</p>
+        </div>
       </CardContent>
     </Card>
   )

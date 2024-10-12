@@ -21,24 +21,36 @@ class Recorder:
         self.is_recording = False
         self.mouse_listener = None
         self.keyboard_listener = None
+        self.chrome_options = self.setup_chrome_options()
 
-    def start(self):
+    def setup_chrome_options(self):
         chrome_options = Options()
-        chrome_options.add_argument("--start-maximized")  # This will start the browser maximized
+        chrome_options.add_argument("--start-maximized")
         chrome_options.add_argument("--disable-notifications")
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
         
-        # Set up user data directory
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
+        
+        prefs = {"credentials_enable_service": False,
+                 "profile.password_manager_enabled": False}
+        chrome_options.add_experimental_option("prefs", prefs)
+        
+        # Use the root chrome_user_data directory
         user_data_dir = os.path.join(os.getcwd(), "chrome_user_data")
         chrome_options.add_argument(f"user-data-dir={user_data_dir}")
         
-        chrome_options.add_experimental_option("useAutomationExtension", False)
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        self.driver = webdriver.Chrome(options=chrome_options)
+        return chrome_options
+
+    def start(self):
+        self.driver = webdriver.Chrome(options=self.chrome_options)
         self.driver.get('https://web.telegram.org/k/')
-        self.driver.fullscreen_window()  # This will make the browser fullscreen
-        logger.info(f"Started browser for routine: {self.routine_name}")
+        self.driver.fullscreen_window()
+        logger.info(f"Started recorder for routine: {self.routine_name}")
         
         self.setup_listeners()
         self.setup_ui()

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Switch } from "@/components/ui/switch"
 
 type BotStatusProps = {
   initialStatus: boolean
@@ -26,9 +27,7 @@ export function BotStatus({ initialStatus, onToggle }: BotStatusProps) {
           <span className={`text-lg font-semibold ${status ? 'text-green-500' : 'text-red-500'}`}>
             {status ? 'Running' : 'Stopped'}
           </span>
-          <Button onClick={handleToggle}>
-            {status ? 'Stop' : 'Start'}
-          </Button>
+          <Switch checked={status} onCheckedChange={handleToggle} />
         </div>
       </CardContent>
     </Card>

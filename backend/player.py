@@ -13,28 +13,42 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class Player:
-    def __init__(self, routine_name, actions, repeat_indefinitely=False):
+    def __init__(self, routine_name, actions, repeat=False):
         self.routine_name = routine_name
         self.actions = actions
         self.driver = None
         self.start_time = None
         self.is_playing = False
-        self.repeat_indefinitely = repeat_indefinitely
+        self.repeat = repeat
         self.stop_requested = False
+        self.session_active = True
+        self.chrome_options = self.setup_chrome_options()
 
-    def start(self):
+    def setup_chrome_options(self):
         chrome_options = Options()
         chrome_options.add_argument("--start-maximized")
         chrome_options.add_argument("--disable-notifications")
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
         
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
+        
+        prefs = {"credentials_enable_service": False,
+                 "profile.password_manager_enabled": False}
+        chrome_options.add_experimental_option("prefs", prefs)
+        
+        # Use the root chrome_user_data directory
         user_data_dir = os.path.join(os.getcwd(), "chrome_user_data")
         chrome_options.add_argument(f"user-data-dir={user_data_dir}")
         
-        chrome_options.add_experimental_option("useAutomationExtension", False)
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        self.driver = webdriver.Chrome(options=chrome_options)
+        return chrome_options
+
+    def start(self):
+        self.driver = webdriver.Chrome(options=self.chrome_options)
         self.driver.get('https://web.telegram.org/k/')
         self.driver.fullscreen_window()
         logger.info(f"Started player for routine: {self.routine_name}")
@@ -54,8 +68,21 @@ class Player:
         statusDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
         statusDiv.style.color = 'white';
         statusDiv.style.zIndex = '9999999';
-        statusDiv.innerHTML = 'Press 9 to start playback';
+        statusDiv.innerHTML = 'Press 9 to start playback<br>Press 0 to stop and close';
         document.body.appendChild(statusDiv);
+
+        var playingIndicator = document.createElement('div');
+        playingIndicator.id = 'playing-indicator';
+        playingIndicator.style.position = 'fixed';
+        playingIndicator.style.top = '10px';
+        playingIndicator.style.right = '10px';
+        playingIndicator.style.padding = '10px';
+        playingIndicator.style.backgroundColor = 'green';
+        playingIndicator.style.color = 'white';
+        playingIndicator.style.zIndex = '9999999';
+        playingIndicator.style.display = 'none';
+        playingIndicator.innerHTML = 'Playing';
+        document.body.appendChild(playingIndicator);
         """
         self.driver.execute_script(js_code)
 
@@ -64,55 +91,80 @@ class Player:
         document.addEventListener('keydown', function(e) {
             if (e.key === '9') {
                 window.dispatchEvent(new CustomEvent('startPlayback'));
-                document.getElementById('playback-status').innerHTML = 'Playback started';
+            } else if (e.key === '0') {
+                window.dispatchEvent(new CustomEvent('stopPlayback'));
             }
         });
         """
         self.driver.execute_script(js_code)
 
     def wait_for_start_signal(self):
-        logger.info("Waiting for '9' key press to start playback...")
+        logger.info("Waiting for '9' key press to start/resume playback...")
         self.driver.execute_script("""
         window.playbackStarted = false;
         window.addEventListener('startPlayback', function() {
             window.playbackStarted = true;
         });
+        window.addEventListener('stopPlayback', function() {
+            window.playbackStopped = true;
+        });
         """)
         
         try:
             WebDriverWait(self.driver, 600).until(
-                lambda d: d.execute_script("return window.playbackStarted === true;")
+                lambda d: d.execute_script("return window.playbackStarted === true || window.playbackStopped === true;")
             )
         except TimeoutException:
-            logger.info("Playback start timed out after 10 minutes.")
+            logger.info("Playback start/stop timed out after 10 minutes.")
+            self.session_active = False
             return
         
+        if self.driver.execute_script("return window.playbackStopped === true;"):
+            logger.info("Stop signal received. Closing session.")
+            self.session_active = False
+            return
+
         logger.info("Playback start signal received.")
         self.start_time = time.time()
         self.is_playing = True
-        self.play()
+        self.stop_requested = False
+        self.driver.execute_script("document.getElementById('playing-indicator').style.display = 'block';")
 
     def play(self):
         if not self.actions['actions']:
             logger.warning("No actions to play")
             return
 
-        while self.is_playing and (self.repeat_indefinitely or not self.stop_requested):
-            for action in self.actions['actions']:
-                if self.stop_requested:
+        while self.session_active:
+            if self.is_playing:
+                for action in self.actions['actions']:
+                    if self.stop_requested:
+                        break
+                    self.wait_for_action_time(action['time'])
+                    if action['type'] == 'click':
+                        self.perform_click(action['x'], action['y'])
+                
+                if not self.repeat:
+                    self.is_playing = False
+                    logger.info("Solo playback completed, waiting for user input")
+                    self.driver.execute_script("""
+                    document.getElementById('playback-status').innerHTML = 'Solo playback completed<br>Press 9 to replay<br>Press 0 to close';
+                    document.getElementById('playing-indicator').style.display = 'none';
+                    """)
+                else:
+                    self.start_time = time.time()  # Reset start time for next iteration
+            else:
+                # Wait for user input to start playing again or stop
+                self.wait_for_start_signal()
+                if not self.session_active:
                     break
-                self.wait_for_action_time(action['time'])
-                if action['type'] == 'click':
-                    self.perform_click(action['x'], action['y'])
-            
-            if not self.repeat_indefinitely:
-                break
-            
-            # Reset start time for next iteration
-            self.start_time = time.time()
 
-        logger.info("Playback completed or stopped")
-        self.driver.execute_script("document.getElementById('playback-status').innerHTML = 'Playback completed';")
+        logger.info("Playback session ended")
+        self.driver.execute_script("""
+        document.getElementById('playback-status').innerHTML = 'Playback session ended';
+        document.getElementById('playing-indicator').style.display = 'none';
+        """)
+        self.driver.quit()
 
     def wait_for_action_time(self, action_time):
         current_time = time.time() - self.start_time
@@ -122,11 +174,14 @@ class Player:
             time.sleep(wait_time)
 
     def perform_click(self, x, y):
-        self.show_click_indicator(x, y)
+        window_size = self.driver.get_window_size()
+        actual_x = int(x * window_size['width'])
+        actual_y = int(y * window_size['height'])
+        logger.info(f"Clicking at relative position ({x}, {y}), actual position ({actual_x}, {actual_y})")
+        self.show_click_indicator(actual_x, actual_y)
         actions = ActionChains(self.driver)
-        actions.move_by_offset(x, y).click().perform()
-        actions.move_by_offset(-x, -y).perform()  # Reset mouse position
-        logger.debug(f"Performed click at ({x}, {y})")
+        actions.move_by_offset(actual_x, actual_y).click().perform()
+        actions.move_by_offset(-actual_x, -actual_y).perform()  # Reset mouse position
 
     def show_click_indicator(self, x, y):
         js_code = """
@@ -149,11 +204,15 @@ class Player:
     def stop(self):
         self.stop_requested = True
         self.is_playing = False
+        self.session_active = False
         if self.driver:
             self.driver.quit()
         logger.info(f"Stopped playback for routine: {self.routine_name}")
 
-def start_playback(routine_name, actions, repeat_indefinitely=False):
-    player = Player(routine_name, actions, repeat_indefinitely)
+def start_playback(routine_name, actions, repeat=False):
+    logger.info(f"Starting {'repeat' if repeat else 'solo'} playback for routine: {routine_name}")
+    logger.info(f"Number of actions: {len(actions['actions'])}")
+    logger.info(f"Repeat: {repeat}")
+    player = Player(routine_name, actions, repeat)
     player.start()
     return player

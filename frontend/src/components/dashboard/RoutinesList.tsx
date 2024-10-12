@@ -3,6 +3,17 @@ import { Button } from '@/components/ui/button'
 import { useToast } from "@/hooks/use-toast"
 import { API_BASE_URL } from '@/config'
 import { useAuth } from '@/contexts/AuthContext'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 type Routine = {
   id: string
@@ -32,7 +43,7 @@ export function RoutinesList({
 }: RoutinesListProps) {
   const [newRoutineName, setNewRoutineName] = useState('')
   const [newTokensPerRun, setNewTokensPerRun] = useState(0)
-  const [activePlayback, setActivePlayback] = useState<string | null>(null)
+  const [playbackStates, setPlaybackStates] = useState<Record<string, { isPlaying: boolean, isIndefinite: boolean }>>({})
   const { toast } = useToast()
   const { session } = useAuth()
 
@@ -46,6 +57,11 @@ export function RoutinesList({
 
   const handlePlaybackRoutine = async (name: string, repeatIndefinitely: boolean) => {
     try {
+      if (playbackStates[name]?.isPlaying) {
+        await handleStopPlayback(name)
+        return
+      }
+
       const response = await fetch(`${API_BASE_URL}/start_playback`, {
         method: 'POST',
         headers: {
@@ -58,8 +74,14 @@ export function RoutinesList({
         throw new Error('Failed to start playback')
       }
       const data = await response.json()
-      setActivePlayback(data.task_id)
+      setPlaybackStates(prev => ({
+        ...prev,
+        [name]: { isPlaying: true, isIndefinite: repeatIndefinitely }
+      }))
       onPlaybackRoutine(name, repeatIndefinitely)
+
+      // Start polling for playback status
+      pollPlaybackStatus(name)
     } catch (error) {
       toast({
         title: "Error",
@@ -69,8 +91,35 @@ export function RoutinesList({
     }
   }
 
-  const handleStopPlayback = async () => {
-    if (!activePlayback) return
+  const pollPlaybackStatus = async (name: string) => {
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/playback_status/${name}`, {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+        })
+        if (!response.ok) {
+          throw new Error('Failed to fetch playback status')
+        }
+        const data = await response.json()
+        if (data.status === 'completed' || data.status === 'stopped') {
+          setPlaybackStates(prev => ({
+            ...prev,
+            [name]: { isPlaying: false, isIndefinite: false }
+          }))
+          clearInterval(intervalId)
+        }
+      } catch (error) {
+        console.error('Error checking playback status:', error)
+        clearInterval(intervalId)
+      }
+    }
+
+    const intervalId = setInterval(checkStatus, 5000) // Check every 5 seconds
+  }
+
+  const handleStopPlayback = async (name: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/stop_playback`, {
         method: 'POST',
@@ -78,12 +127,15 @@ export function RoutinesList({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ task_id: activePlayback }),
+        body: JSON.stringify({ name }),
       })
       if (!response.ok) {
         throw new Error('Failed to stop playback')
       }
-      setActivePlayback(null)
+      setPlaybackStates(prev => ({
+        ...prev,
+        [name]: { isPlaying: false, isIndefinite: false }
+      }))
       toast({
         title: "Playback Stopped",
         description: "The routine playback has been stopped.",
@@ -129,41 +181,72 @@ export function RoutinesList({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-      <h2 className="text-xl font-bold mb-4">Routines</h2>
-      <ul>
-        {routines.map((routine) => (
-          <li key={routine.id} className="mb-2 p-2 border rounded">
-            <span>{routine.name} - {routine.tokens_per_run} tokens per run</span>
-            <div className="mt-2">
-              <Button onClick={() => onRecordRoutine(routine.name, routine.tokens_per_run)} className="mr-2">Record</Button>
-              <Button onClick={() => handlePlaybackRoutine(routine.name, false)} className="mr-2">Play Once</Button>
-              <Button onClick={() => handlePlaybackRoutine(routine.name, true)} className="mr-2">Play Indefinitely</Button>
-              {activePlayback && <Button onClick={handleStopPlayback} variant="destructive">Stop</Button>}
-              <Button onClick={() => onTranslateToHeadless(routine.name)} className="mr-2">Translate to Headless</Button>
-              <Button onClick={() => onEditRoutine(routine)} className="mr-2">Edit</Button>
-              <Button onClick={() => handleDeleteRoutine(routine.id)} variant="destructive">Delete</Button>
+    <Card>
+      <CardHeader>
+        <CardTitle>Routines</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="h-[400px] pr-4">
+          <ul className="space-y-4">
+            {routines.map((routine) => (
+              <li key={routine.id} className="p-4 border rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold">{routine.name}</span>
+                  <span className="text-sm text-gray-500">{routine.tokens_per_run} tokens per run</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => onRecordRoutine(routine.name, routine.tokens_per_run)}>Record</Button>
+                  <Button 
+                    size="sm" 
+                    onClick={() => handlePlaybackRoutine(routine.name, false)}
+                    variant={playbackStates[routine.name]?.isPlaying && !playbackStates[routine.name]?.isIndefinite ? "destructive" : "default"}
+                  >
+                    {playbackStates[routine.name]?.isPlaying && !playbackStates[routine.name]?.isIndefinite ? "Stop" : "Play Once"}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={() => handlePlaybackRoutine(routine.name, true)}
+                    variant={playbackStates[routine.name]?.isPlaying && playbackStates[routine.name]?.isIndefinite ? "destructive" : "default"}
+                  >
+                    {playbackStates[routine.name]?.isPlaying && playbackStates[routine.name]?.isIndefinite ? "Stop" : "Play Indefinitely"}
+                  </Button>
+                  <Button size="sm" onClick={() => onTranslateToHeadless(routine.name)}>Translate to Headless</Button>
+                  <Button size="sm" onClick={() => onEditRoutine(routine)}>Edit</Button>
+                  <Button size="sm" onClick={() => handleDeleteRoutine(routine.id)} variant="destructive">Delete</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </ScrollArea>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="mt-4">Add Routine</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Routine</DialogTitle>
+              <DialogDescription>
+                Enter the details for your new routine.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Input
+                type="text"
+                value={newRoutineName}
+                onChange={(e) => setNewRoutineName(e.target.value)}
+                placeholder="Routine name"
+              />
+              <Input
+                type="number"
+                value={newTokensPerRun}
+                onChange={(e) => setNewTokensPerRun(Number(e.target.value))}
+                placeholder="Tokens per run"
+              />
+              <Button onClick={handleAddRoutine}>Add Routine</Button>
             </div>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-4">
-        <input
-          type="text"
-          value={newRoutineName}
-          onChange={(e) => setNewRoutineName(e.target.value)}
-          placeholder="New routine name"
-          className="mr-2 p-2 border rounded"
-        />
-        <input
-          type="number"
-          value={newTokensPerRun}
-          onChange={(e) => setNewTokensPerRun(Number(e.target.value))}
-          placeholder="Tokens per run"
-          className="mr-2 p-2 border rounded"
-        />
-        <Button onClick={handleAddRoutine}>Add Routine</Button>
-      </div>
-    </div>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
   )
 }

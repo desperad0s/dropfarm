@@ -14,6 +14,14 @@ import { useToast } from "@/hooks/use-toast"
 import { RefreshCw } from "lucide-react"
 import { Calibration } from '@/components/Calibration'
 import { useRecordingStatus } from '@/hooks/useRecordingStatus'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 export function Dashboard() {
   const { user, session } = useAuth()
@@ -336,27 +344,29 @@ export function Dashboard() {
   if (!data) return <div>No data available</div>
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto p-4 space-y-6">
+      <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <Button onClick={refreshDashboardData} className="flex items-center gap-2">
           <RefreshCw className="h-4 w-4" />
           Refresh Data
         </Button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <BotStatus initialStatus={botStatus} onToggle={handleBotToggle} />
         <EarningsOverview 
           totalEarnings={data.totalEarnings} 
           earningsHistory={data.earningsHistory}
           totalTokensGenerated={data.totalTokensGenerated}
         />
-        <ActivityLog activities={data.activities} />
         <UserStats 
           totalRoutineRuns={data.totalRoutineRuns} 
           lastRunDate={data.lastRunDate}
           totalTokensGenerated={data.totalTokensGenerated}
         />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ActivityLog activities={data.activities} />
         <RoutinesList
           routines={data.routines}
           onAddRoutine={handleAddRoutine}
@@ -364,24 +374,33 @@ export function Dashboard() {
           onRecordRoutine={handleRecordRoutine}
           onPlaybackRoutine={handlePlaybackRoutine}
           onTranslateToHeadless={handleTranslateToHeadless}
-          onDeleteRoutine={handleDeleteRoutine}  // Add this line
+          onDeleteRoutine={handleDeleteRoutine}
         />
-        <Button onClick={handlePopulateTestData}>Populate Test Data</Button>
-        <Button onClick={() => setShowCalibration(true)}>Start Calibration</Button>
-        {showCalibration && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" onClick={() => setShowCalibration(false)}>
-            <div className="bg-white dark:bg-gray-800 p-4 rounded" onClick={(e) => e.stopPropagation()}>
-              <Calibration onClose={() => setShowCalibration(false)} />
-            </div>
-          </div>
-        )}
-        {currentRecordingTask && (
-          <div>
-            Recording Status: {recordingStatus}
-            {recordingError && <p className="text-red-500">Error: {recordingError}</p>}
-          </div>
-        )}
       </div>
+      <div className="flex gap-4">
+        <Button onClick={handlePopulateTestData}>Populate Test Data</Button>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>Start Calibration</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Calibration</DialogTitle>
+              <DialogDescription>
+                Calibrate your browser for optimal performance.
+              </DialogDescription>
+            </DialogHeader>
+            <Calibration onClose={() => {}} />
+          </DialogContent>
+        </Dialog>
+      </div>
+      {currentRecordingTask && (
+        <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+          <h3 className="text-lg font-semibold mb-2">Recording Status</h3>
+          <p>{recordingStatus}</p>
+          {recordingError && <p className="text-red-500 mt-2">Error: {recordingError}</p>}
+        </div>
+      )}
     </div>
   )
 }
