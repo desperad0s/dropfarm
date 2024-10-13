@@ -1,7 +1,6 @@
 import time
 import logging
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -30,7 +29,6 @@ class Player:
         self.driver.get('https://web.telegram.org/k/')
         logger.info(f"Started player for routine: {self.routine_name}")
         
-        # Ensure the window is maximized and fullscreen
         self.driver.maximize_window()
         self.driver.fullscreen_window()
         
@@ -92,21 +90,29 @@ class Player:
             logger.warning("No actions to play")
             return
 
-        while self.is_playing and (self.repeat_indefinitely or not self.stop_requested):
+        while self.is_playing and not self.stop_requested:
+            self.start_time = time.time()
+            last_action_time = 0
             for action in self.actions['actions']:
                 if self.stop_requested:
                     break
                 self.wait_for_action_time(action['time'])
                 if action['type'] == 'click':
                     self.perform_click(action['x'], action['y'])
+                last_action_time = action['time']
+            
+            # Handle final wait time
+            final_wait_time = max(0, last_action_time - (time.time() - self.start_time))
+            if final_wait_time > 0:
+                logger.info(f"Waiting for final delay of {final_wait_time:.2f} seconds")
+                time.sleep(final_wait_time)
             
             if not self.repeat_indefinitely:
                 break
             
-            # Reset start time for next iteration
-            self.start_time = time.time()
+            time.sleep(1)  # Small delay before next iteration
 
-        logger.info("Playback completed or stopped")
+        logger.info("Playback completed")
         self.driver.execute_script("document.getElementById('playback-status').innerHTML = 'Playback completed';")
 
     def wait_for_action_time(self, action_time):
@@ -117,11 +123,15 @@ class Player:
             time.sleep(wait_time)
 
     def perform_click(self, x, y):
-        self.show_click_indicator(x, y)
+        window_size = self.driver.get_window_size()
+        actual_x = int(x * window_size['width'])
+        actual_y = int(y * window_size['height'])
+        logger.info(f"Clicking at relative position ({x}, {y}), actual position ({actual_x}, {actual_y})")
+        self.show_click_indicator(actual_x, actual_y)
+        
         actions = ActionChains(self.driver)
-        actions.move_by_offset(x, y).click().perform()
-        actions.move_by_offset(-x, -y).perform()  # Reset mouse position
-        logger.debug(f"Performed click at ({x}, {y})")
+        actions.move_by_offset(actual_x, actual_y).click().perform()
+        actions.move_by_offset(-actual_x, -actual_y).perform()  # Reset mouse position
 
     def show_click_indicator(self, x, y):
         js_code = """
@@ -149,6 +159,9 @@ class Player:
         logger.info(f"Stopped playback for routine: {self.routine_name}")
 
 def start_playback(routine_name, actions, repeat_indefinitely=False):
+    logger.info(f"Starting {'repeat' if repeat_indefinitely else 'solo'} playback for routine: {routine_name}")
+    logger.info(f"Number of actions: {len(actions['actions'])}")
+    logger.info(f"Repeat: {repeat_indefinitely}")
     player = Player(routine_name, actions, repeat_indefinitely)
     player.start()
     return player

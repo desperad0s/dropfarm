@@ -48,13 +48,16 @@ class Recorder:
         def on_click(x, y, button, pressed):
             if pressed and self.is_recording:
                 current_time = time.time() - self.start_time
+                window_size = self.driver.get_window_size()
+                relative_x = x / window_size['width']
+                relative_y = y / window_size['height']
                 self.actions.append({
                     'type': 'click',
                     'time': current_time,
-                    'x': x,
-                    'y': y
+                    'x': relative_x,
+                    'y': relative_y
                 })
-                logger.debug(f"Recorded click at ({x}, {y}) at time {current_time:.2f}s")
+                logger.debug(f"Recorded click at relative position ({relative_x}, {relative_y}) at time {current_time:.2f}s")
                 self.show_click_indicator(x, y)
 
         def on_press(key):
