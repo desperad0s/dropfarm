@@ -7,22 +7,25 @@ import { EarningsOverview } from '@/components/dashboard/EarningsOverview'
 import { ActivityLog } from '@/components/dashboard/ActivityLog'
 import { UserStats } from '@/components/dashboard/UserStats'
 import { RoutinesList } from '@/components/dashboard/RoutinesList'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { API_BASE_URL } from '@/config'
 import { Button } from '@/components/ui/button'
 import { useToast } from "@/hooks/use-toast"
 import { RefreshCw } from "lucide-react"
-import { Calibration } from '@/components/Calibration'
-import { useRecordingStatus } from '@/hooks/useRecordingStatus'
+import { Card, CardContent } from "@/components/ui/card"
+
+// Define the Routine type
+type Routine = {
+  id: string
+  name: string
+  tokens_per_run: number
+}
 
 export function Dashboard() {
   const { user, session } = useAuth()
   const [botStatus, setBotStatus] = useState(false)
   const { toast } = useToast()
   const [currentRecordingTask, setCurrentRecordingTask] = useState<{ id: string, name: string } | null>(null)
-  const [isRecording, setIsRecording] = useState(false);
-  const [showCalibration, setShowCalibration] = useState(false);
-  const { status: recordingStatus, error: recordingError } = useRecordingStatus(currentRecordingTask?.id || null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!session || !session.access_token) {
@@ -70,8 +73,8 @@ export function Dashboard() {
       if (!session || !session.access_token) {
         throw new Error('No active session');
       }
-      console.log("Sending record request:", { name: routineName, tokens_per_run: tokensPerRun });
-      const response = await fetch(`${API_BASE_URL}/api/record`, {
+      // Remove the extra 'api/' from the URL
+      const response = await fetch(`${API_BASE_URL}/record`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,30 +87,11 @@ export function Dashboard() {
         throw new Error(errorData.error || 'Failed to start recording');
       }
       const data = await response.json();
-      console.log(data.message);
       setCurrentRecordingTask({ id: data.task_id, name: routineName });
-      setIsRecording(true);
       toast({
         title: "Recording Started",
         description: "A new window will open. Press 7 to start recording, 8 to stop.",
       })
-
-      // Poll for recording completion
-      const pollInterval = setInterval(async () => {
-        const statusResponse = await fetch(`${API_BASE_URL}/api/recording-status/${data.task_id}`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
-        const statusData = await statusResponse.json();
-        if (statusData.status === 'completed') {
-          clearInterval(pollInterval);
-          setIsRecording(false);
-          setCurrentRecordingTask(null);
-          refreshDashboardData();  // Refresh dashboard data after recording is completed
-        }
-      }, 5000);  // Poll every 5 seconds
-
     } catch (error) {
       console.error('Error starting recording:', error);
       toast({
@@ -116,7 +100,7 @@ export function Dashboard() {
         variant: "destructive",
       })
     }
-  }, [session, toast, refreshDashboardData]);
+  }, [session, toast]);
 
   const handleBotToggle = useCallback(async (status: boolean) => {
     try {
@@ -138,7 +122,7 @@ export function Dashboard() {
     }
   }, [session]);
 
-  const handleAddRoutine = useCallback(async (routine: Omit<{ id: string; name: string; steps: string[]; tokens_per_run: number }, 'id'>) => {
+  const handleAddRoutine = useCallback(async (routine: Omit<Routine, 'id'>) => {
     try {
       const response = await fetch(`${API_BASE_URL}/routines`, {
         method: 'POST',
@@ -149,12 +133,13 @@ export function Dashboard() {
         body: JSON.stringify(routine),
       });
       if (response.ok) {
-        // Refresh dashboard data
-        fetchDashboardData();
+        await fetchDashboardData(); // Wait for the data to be fetched
         toast({
           title: "Success",
           description: "New routine added successfully",
         });
+        // Close the dialog here (you might need to pass a function to close the dialog from the parent component)
+        // For example: onCloseDialog();
       } else {
         throw new Error('Failed to add routine');
       }
@@ -168,7 +153,7 @@ export function Dashboard() {
     }
   }, [session, fetchDashboardData, toast]);
 
-  const handleEditRoutine = useCallback(async (routine: { id: string; name: string; steps: string[]; tokens_per_run: number }) => {
+  const handleEditRoutine = useCallback(async (routine: Routine) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/routines/${routine.id}`, {
         method: 'PUT',
@@ -179,7 +164,6 @@ export function Dashboard() {
         body: JSON.stringify(routine),
       });
       if (response.ok) {
-        // Refresh dashboard data
         fetchDashboardData();
       } else {
         throw new Error('Failed to edit routine');
@@ -276,7 +260,6 @@ export function Dashboard() {
         if (!response.ok) {
           throw new Error('Failed to cancel recording');
         }
-        setIsRecording(false);
         setCurrentRecordingTask(null);
         toast({
           title: "Recording Cancelled",
@@ -316,27 +299,12 @@ export function Dashboard() {
     }
   }, [session, fetchDashboardData, toast]);
 
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isRecording) {
-        e.preventDefault();
-        e.returnValue = 'You have an ongoing recording. Are you sure you want to leave?';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [isRecording]);
-
   if (isLoading) return <div>Loading...</div>
   if (error) return <div>Error: {error.message}</div>
   if (!data) return <div>No data available</div>
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <Button onClick={refreshDashboardData} className="flex items-center gap-2">
@@ -344,44 +312,60 @@ export function Dashboard() {
           Refresh Data
         </Button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <BotStatus initialStatus={botStatus} onToggle={handleBotToggle} />
-        <EarningsOverview 
-          totalEarnings={data.totalEarnings} 
-          earningsHistory={data.earningsHistory}
-          totalTokensGenerated={data.totalTokensGenerated}
-        />
-        <ActivityLog activities={data.activities} />
-        <UserStats 
-          totalRoutineRuns={data.totalRoutineRuns} 
-          lastRunDate={data.lastRunDate}
-          totalTokensGenerated={data.totalTokensGenerated}
-        />
-        <RoutinesList
-          routines={data.routines}
-          onAddRoutine={handleAddRoutine}
-          onEditRoutine={handleEditRoutine}
-          onRecordRoutine={handleRecordRoutine}
-          onPlaybackRoutine={handlePlaybackRoutine}
-          onTranslateToHeadless={handleTranslateToHeadless}
-          onDeleteRoutine={handleDeleteRoutine}  // Add this line
-        />
-        <Button onClick={handlePopulateTestData}>Populate Test Data</Button>
-        <Button onClick={() => setShowCalibration(true)}>Start Calibration</Button>
-        {showCalibration && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center" onClick={() => setShowCalibration(false)}>
-            <div className="bg-white dark:bg-gray-800 p-4 rounded" onClick={(e) => e.stopPropagation()}>
-              <Calibration onClose={() => setShowCalibration(false)} />
-            </div>
-          </div>
-        )}
-        {currentRecordingTask && (
-          <div>
-            Recording Status: {recordingStatus}
-            {recordingError && <p className="text-red-500">Error: {recordingError}</p>}
-          </div>
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="pt-6">
+            <BotStatus initialStatus={botStatus} onToggle={handleBotToggle} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <EarningsOverview 
+              totalEarnings={data.totalEarnings} 
+              earningsHistory={data.earningsHistory}
+              totalTokensGenerated={data.totalTokensGenerated}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <UserStats 
+              totalRoutineRuns={data.totalRoutineRuns} 
+              lastRunDate={data.lastRunDate}
+              totalTokensGenerated={data.totalTokensGenerated}
+            />
+          </CardContent>
+        </Card>
       </div>
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-2xl font-bold mb-4">Routines</h2>
+          <RoutinesList
+            routines={data.routines}
+            onAddRoutine={handleAddRoutine}
+            onEditRoutine={handleEditRoutine}
+            onRecordRoutine={handleRecordRoutine}
+            onPlaybackRoutine={handlePlaybackRoutine}
+            onTranslateToHeadless={handleTranslateToHeadless}
+            onDeleteRoutine={handleDeleteRoutine}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-2xl font-bold mb-4">Activity Log</h2>
+          <ActivityLog activities={data.activities} />
+        </CardContent>
+      </Card>
+      {currentRecordingTask && (
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-2xl font-bold mb-4">Current Recording</h2>
+            <p>Recording: {currentRecordingTask.name}</p>
+            <p>Task ID: {currentRecordingTask.id}</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

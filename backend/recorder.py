@@ -8,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from pynput import mouse, keyboard
 import os
+from .automation_config import get_chrome_driver
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -23,22 +24,13 @@ class Recorder:
         self.keyboard_listener = None
 
     def start(self):
-        chrome_options = Options()
-        chrome_options.add_argument("--start-maximized")  # This will start the browser maximized
-        chrome_options.add_argument("--disable-notifications")
-        chrome_options.add_argument("--disable-infobars")
-        chrome_options.add_argument("--disable-extensions")
-        
-        # Set up user data directory
-        user_data_dir = os.path.join(os.getcwd(), "chrome_user_data")
-        chrome_options.add_argument(f"user-data-dir={user_data_dir}")
-        
-        chrome_options.add_experimental_option("useAutomationExtension", False)
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        self.driver = webdriver.Chrome(options=chrome_options)
+        self.driver = get_chrome_driver()
         self.driver.get('https://web.telegram.org/k/')
-        self.driver.fullscreen_window()  # This will make the browser fullscreen
-        logger.info(f"Started browser for routine: {self.routine_name}")
+        logger.info(f"Started recorder for routine: {self.routine_name}")
+        
+        # Ensure the window is maximized and fullscreen
+        self.driver.maximize_window()
+        self.driver.fullscreen_window()
         
         self.setup_listeners()
         self.setup_ui()

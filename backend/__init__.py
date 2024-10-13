@@ -7,7 +7,7 @@ def create_app():
     app.config.from_object(Config)
     
     # Update CORS configuration
-    CORS(app, resources={r"/*": {"origins": Config.FRONTEND_URL}}, supports_credentials=True, allow_headers=["Content-Type", "Authorization"])
+    CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
     
     from .routes import bot_routes
     app.register_blueprint(bot_routes, url_prefix='/api')

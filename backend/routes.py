@@ -112,7 +112,6 @@ def add_routine(current_user):
         routine_data = request.json
         new_routine = {
             'name': routine_data['name'],
-            'steps': routine_data['steps'],
             'tokens_per_run': routine_data['tokens_per_run'],
             'user_id': str(current_user.id)
         }
@@ -123,30 +122,38 @@ def add_routine(current_user):
         logger.error(f"Error adding routine: {str(e)}")
         return jsonify({"msg": str(e)}), 500
 
-@bot_routes.route('/routines/<int:routine_id>', methods=['PUT'])
+@bot_routes.route('/api/routines/<routine_id>', methods=['PUT'])
 @auth.token_required
 def edit_routine(current_user, routine_id):
     try:
-        db_user = User.query.filter_by(supabase_uid=current_user['id']).first()
-        if not db_user:
-            return jsonify({"msg": "User not found"}), 404
-        
-        routine = Routine.query.filter_by(id=routine_id, user_id=db_user.id).first()
-        if not routine:
-            return jsonify({"msg": "Routine not found"}), 404
-        
         routine_data = request.json
-        routine.name = routine_data['name']
-        routine.steps = routine_data['steps']
-        routine.updated_at = datetime.utcnow()
+        updated_routine = {
+            'name': routine_data['name'],
+            'tokens_per_run': routine_data['tokens_per_run'],
+            'updated_at': datetime.utcnow()
+        }
+        result = supabase.table('routines').update(updated_routine).eq('id', routine_id).eq('user_id', current_user.id).execute()
         
-        # Replace db.session with Supabase queries
-        # For example:
-        # supabase.table('routines').update({"name": routine_data['name'], "steps": routine_data['steps'], "updated_at": datetime.utcnow()}).eq('id', routine_id).execute()
-        
-        return jsonify({"msg": "Routine updated successfully"}), 200
+        if result.data:
+            return jsonify({"msg": "Routine updated successfully"}), 200
+        else:
+            return jsonify({"msg": "Routine not found or you don't have permission to edit it"}), 404
     except Exception as e:
         logger.error(f"Error editing routine: {str(e)}")
+        return jsonify({"msg": str(e)}), 500
+
+@bot_routes.route('/routines/<routine_id>', methods=['DELETE'])
+@auth.token_required
+def delete_routine(current_user, routine_id):
+    try:
+        result = supabase.table('routines').delete().eq('id', routine_id).eq('user_id', current_user.id).execute()
+        
+        if result.data:
+            return jsonify({"msg": "Routine deleted successfully"}), 200
+        else:
+            return jsonify({"msg": "Routine not found or you don't have permission to delete it"}), 404
+    except Exception as e:
+        logger.error(f"Error deleting routine: {str(e)}")
         return jsonify({"msg": str(e)}), 500
 
 @bot_routes.route('/record', methods=['POST'])
@@ -381,33 +388,4 @@ def stop_playback(current_user):
         return jsonify({"message": "Stop request sent successfully"}), 202
     except Exception as e:
         logger.error(f"Error stopping playback: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-@bot_routes.route('/routines/<routine_id>', methods=['DELETE'])
-@cross_origin(supports_credentials=True)
-@auth.token_required
-def delete_routine(current_user, routine_id):
-    try:
-        logger.info(f"Attempting to delete routine {routine_id} for user {current_user.id}")
-        
-        # First, check if the routine exists and belongs to the current user
-        routine = supabase.table('routines').select('*').eq('id', routine_id).eq('user_id', current_user.id).single().execute()
-        logger.info(f"Routine query result: {routine}")
-        
-        if not routine.data:
-            logger.warning(f"Routine not found or user doesn't have permission: {routine_id}")
-            return jsonify({"error": "Routine not found or you don't have permission to delete it"}), 404
-        
-        # If the routine exists and belongs to the user, delete it
-        result = supabase.table('routines').delete().eq('id', routine_id).eq('user_id', current_user.id).execute()
-        logger.info(f"Delete operation result: {result}")
-        
-        if result.data:
-            logger.info(f"Routine deleted successfully: {routine_id}")
-            return jsonify({"message": "Routine deleted successfully"}), 200
-        else:
-            logger.error(f"Failed to delete routine: {routine_id}")
-            return jsonify({"error": "Failed to delete routine"}), 500
-    except Exception as e:
-        logger.error(f"Error deleting routine {routine_id}: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500

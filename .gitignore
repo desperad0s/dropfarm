@@ -1,41 +1,43 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-venv/
-*.pyc
-
-# Environment variables
+# .gitignore
+# Ignore environment files
 .env
+frontend/.env.local
 
-# Node
+# Include example environment files
+!.env.example
+!frontend/.env.example
+
+# Node modules
 node_modules/
 
-# Next.js
-.next/
-out/
+# Python virtual environment
+venv/
 
-# IDEs
-.vscode/
-.idea/
+# Compiled Python files
+*.pyc
+__pycache__/
+
+# Logs
+*.log
 
 # OS generated files
 .DS_Store
 Thumbs.db
 
-# Node modules (for frontend)
-frontend/node_modules/
+# IDE specific files
+.vscode/
+.idea/
 
-# Next.js build output
-frontend/.next/
-frontend/out/
+# Build outputs
+/build
+/dist
 
-# Python cache
-*.pyc
-__pycache__/
+# Temporary files
+*.tmp
+*.bak
 
-# Database
-*.sqlite
+#Cursor rules
+.cursorrules
 
-# Chrome user data
-chrome_user_data/
+#Chrome User Data
+chrome_user_data*/

@@ -151,7 +151,7 @@ def start_playback_task(self, routine_name, user_id, repeat_indefinitely=False):
         # Log the completion of playback
         try:
             supabase.table('activities').insert({
-                'user_id': user_uuid,
+                'user_id': str(user_uuid),  # Convert UUID to string
                 'action_type': 'playback_complete',
                 'details': json.dumps({'routine_name': routine_name})
             }).execute()

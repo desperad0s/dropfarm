@@ -8,15 +8,12 @@ type EarningsOverviewProps = {
 
 export function EarningsOverview({ totalEarnings, earningsHistory, totalTokensGenerated }: EarningsOverviewProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Earnings Overview</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p>Total Earnings: ${totalEarnings.toFixed(2)}</p>
-        <p>Total Tokens Generated: {totalTokensGenerated}</p>
-        {/* Add more detailed breakdown or chart here */}
-      </CardContent>
-    </Card>
+    <div>
+      <h2 className="text-2xl font-bold mb-4">Earnings Overview</h2>
+      <p className="text-2xl font-bold">${totalEarnings.toFixed(2)}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">Total Earnings</p>
+      <p className="text-lg mt-2">{totalTokensGenerated}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">Total Tokens Generated</p>
+    </div>
   )
 }

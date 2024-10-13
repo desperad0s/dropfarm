@@ -5,3 +5,6 @@ This guide provides useful commands and knowledge for managing Celery tasks and 
 ## Starting Celery Worker
 
 Standard worker:
+```
+celery -A backend.celery_worker.celery worker --pool=solo --loglevel=info
+```
