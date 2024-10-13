@@ -143,7 +143,7 @@ def start_playback_task(self, routine_name, user_id, repeat_indefinitely=False):
         # Store task ID in a way that can be accessed for cleanup
         celery.backend.set(f'playback_task:{user_id}:{routine_name}', self.request.id)
         
-        player.play()
+        # The play method is now called within start_playback, so we don't need to call it here
         
         # Clean up task ID after completion
         celery.backend.delete(f'playback_task:{user_id}:{routine_name}')
