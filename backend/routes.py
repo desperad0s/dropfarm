@@ -3,6 +3,8 @@ from flask import Blueprint, jsonify, request, make_response
 from flask_cors import cross_origin
 from .supabase_client import get_authenticated_client
 from .tasks import start_recording_task, start_playback_task, stop_playback_task, delete_routine
+from supabase import create_client, Client
+from .config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +79,12 @@ def record():
         if not routine_name or tokens_per_run is None:
             return jsonify({"error": "Routine name and tokens per run are required"}), 400
         
-        task = start_recording_task.delay(routine_name, tokens_per_run, access_token, refresh_token)
+        user = supabase.auth.get_user(access_token)
+        if not user or not user.id:
+            return jsonify({"error": "Failed to authenticate user"}), 401
+        
+        # Start recording task
+        task = start_recording_task.delay(routine_name, tokens_per_run, user.id)
         return jsonify({
             "message": f"Recording task started for routine: {routine_name}",
             "task_id": task.id
@@ -101,11 +108,15 @@ def start_playback():
         if not routine_name:
             return jsonify({"error": "Routine name is required"}), 400
         
-        task = start_playback_task.delay(routine_name, repeat_indefinitely, access_token)
+        user = supabase.auth.get_user(access_token)
+        if not user or not user.id:
+            return jsonify({"error": "Failed to authenticate user"}), 401
+        
+        # Start playback task
+        task = start_playback_task.delay(routine_name, repeat_indefinitely, user.id)
         return jsonify({
             "message": f"Playback task started for routine: {routine_name}",
-            "task_id": task.id,
-            "routine_name": routine_name
+            "task_id": task.id
         }), 202
     except Exception as e:
         logger.error(f"Error starting playback: {str(e)}")
@@ -134,15 +145,28 @@ def add_routine():
             return jsonify({"error": "No authentication token found"}), 401
 
         data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        if 'name' not in data:
+            return jsonify({"error": "Routine name is required"}), 400
+        if 'tokens_per_run' not in data:
+            return jsonify({"error": "Tokens per run is required"}), 400
+
         client = get_authenticated_client(access_token, refresh_token)
-        user = client.auth.get_user()
+        user = client.auth.get_user(access_token)
         if not user or not user.user:
             return jsonify({"error": "Failed to authenticate user"}), 401
+
+        # Check if a routine with the same name already exists for this user
+        existing_routine = client.table('routines').select('*').eq('name', data['name']).eq('user_id', user.user.id).execute()
+        if existing_routine.data:
+            return jsonify({"error": "A routine with this name already exists"}), 400
 
         routine = {
             'name': data['name'],
             'tokens_per_run': data['tokens_per_run'],
-            'user_id': user.user.id
+            'user_id': user.user.id,
+            'steps': '[]'  # Initialize with empty steps
         }
         result = client.table('routines').insert(routine).execute()
         return jsonify(result.data[0]), 201

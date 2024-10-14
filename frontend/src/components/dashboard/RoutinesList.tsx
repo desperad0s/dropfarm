@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/utils/api'
 import { supabase } from '@/lib/supabaseClient'
+import axios from 'axios'
 
 type Routine = {
   id: string
@@ -38,29 +39,34 @@ export function RoutinesList({
   const handleAddRoutine = async () => {
     if (newRoutineName && newTokensPerRun > 0) {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          throw new Error('No active session');
-        }
-        await api.post('/routines', {
+        setIsDialogOpen(false); // Close the dialog immediately to prevent double submissions
+        const response = await api.post('/routines', {
           name: newRoutineName,
           tokens_per_run: newTokensPerRun
         });
-        onAddRoutine({ name: newRoutineName, tokens_per_run: newTokensPerRun });
+        onAddRoutine(response.data);
         setNewRoutineName('');
         setNewTokensPerRun(0);
-        setIsDialogOpen(false);
         toast({
           title: "Routine Added",
           description: "The new routine has been added successfully.",
         });
       } catch (error) {
         console.error('Error adding routine:', error);
-        toast({
-          title: "Error",
-          description: "Failed to add routine. Please try again.",
-          variant: "destructive",
-        });
+        if (axios.isAxiosError(error) && error.response) {
+          console.error('Error response:', error.response.data);
+          toast({
+            title: "Error",
+            description: error.response.data.error || "Failed to add routine. Please try again.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: "An unexpected error occurred. Please try again.",
+            variant: "destructive",
+          });
+        }
       }
     }
   }

@@ -1,5 +1,18 @@
 import httpx
-from .config import Config  # Changed this line
+import os
+from supabase import create_client, Client
+from dotenv import load_dotenv
+from .config import Config
+
+load_dotenv()
+
+supabase_url = os.getenv('SUPABASE_URL')
+supabase_key = os.getenv('SUPABASE_KEY')
+
+if not supabase_url or not supabase_key:
+    raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in the environment variables")
+
+supabase: Client = create_client(supabase_url, supabase_key)
 
 class SupabaseClient:
     def __init__(self):
@@ -45,13 +58,11 @@ class TableQuery:
 def get_supabase_client():
     return SupabaseClient()
 
-def get_authenticated_client(access_token: str, refresh_token: str = None):
-    client = get_supabase_client()
-    client.headers["Authorization"] = f"Bearer {access_token}"
-    return client
+def get_authenticated_client(access_token, refresh_token=None):
+    # For now, we'll just return the global supabase client
+    # In the future, you might want to use the tokens to create a new client or authenticate the existing one
+    return supabase
 
-def authenticated_request(access_token: str, refresh_token: str):
-    client = get_authenticated_client(access_token, refresh_token)
-    response = httpx.get(f"{client.url}/auth/v1/user", headers=client.headers)
-    response.raise_for_status()
-    return response.json()
+def authenticated_request(access_token, refresh_token=None):
+    user = supabase.auth.get_user(access_token)
+    return user.user if user else None

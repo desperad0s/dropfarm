@@ -1,1 +1,7 @@
- 
+ You know the sceop of this project and that we are developing a telegram auotmation tool where the user ahs a dashboard can add routines, enter token amount and name and record in a selenium session clicks and mousemovements and then save this routine like we did in the routines table (check recorder.py) and then have it repolay in the player.py (solo and indfeinitely) this worked already yesterday night, but the reporting wa wrongnad we ahd some auth problems with the reporting etc and thats why we decided to setup supabasequery and supabase auth nd have flask cand celer yonly do the work load stuff, but I dont know if this works with our scope?
+
+I plan to use and test this forst for me and add functionality to schedule routines in a timely manner and with some conditiosn and triggers and then later have that be translated to ehadless and paly in a VPS but the user can still record and play locally too.
+
+My thoughts were fixing reporting and bringing the base functionality back and then making it possible that I can run this whole environment on my ubuntu vps and have the indeifnite player farm tokens there until I develop the scheduling taks, test them and then finally release to the public and friends.
+
+That is the whole scope and we need to get the reporting back, fix the cors issues, make the functionalities work agian by button press and have them record data, store in databaswe and calculate earning sabesd off of that data to display in the dashboard where we report this data. It does not need to be live, but it should beworking and acurate, before we expland.

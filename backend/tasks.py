@@ -1,7 +1,7 @@
 from .celery_worker import celery
 from .recorder import start_recording
 from .player import start_playback
-from .supabase_client import get_authenticated_client, authenticated_request
+from .supabase_client import supabase
 import json
 import logging
 from celery.exceptions import SoftTimeLimitExceeded
@@ -22,58 +22,29 @@ def get_recording_status(user_id, routine_name):
     return celery.backend.get(key)
 
 @celery.task(bind=True, name='backend.tasks.start_recording_task', max_retries=0, soft_time_limit=600, time_limit=610)
-def start_recording_task(self, routine_name, tokens_per_run, access_token, refresh_token=None):
+def start_recording_task(self, routine_name, tokens_per_run, user_id):
     try:
-        user = authenticated_request(access_token, refresh_token)
-        if not user:
-            raise ValueError("Failed to authenticate user")
-        user_id = user['id']
-        
-        client = get_authenticated_client(access_token, refresh_token)
-        
-        # Log recording start
-        client.table('activities').insert({
-            'user_id': user_id,
-            'action_type': 'recording_started',
-            'details': json.dumps({'routine_name': routine_name})
-        })
-        
         result = start_recording(routine_name)
-        logger.info(f"Recording result: {result}")
         if result and result.get('actions'):
             sanitized_result = sanitize_data(result)
-            try:
-                # Check if the routine already exists
-                existing_routine = client.table('routines').select('*').eq('name', routine_name).eq('user_id', user_id)
-                
-                if existing_routine:
-                    # Update existing routine
-                    client.table('routines').update({
-                        'steps': json.dumps(sanitized_result),
-                        'tokens_per_run': tokens_per_run,
-                        'updated_at': 'now()'
-                    }).eq('name', routine_name).eq('user_id', user_id)
-                else:
-                    # Insert new routine
-                    client.table('routines').insert({
-                        'name': routine_name,
-                        'user_id': user_id,
-                        'steps': json.dumps(sanitized_result),
-                        'tokens_per_run': tokens_per_run
-                    })
-                
-                return f"Recording completed for routine: {routine_name}"
-            except Exception as e:
-                logger.error(f"Failed to save routine: {str(e)}")
-                raise
+            supabase.table('routines').insert({
+                'name': routine_name,
+                'user_id': user_id,
+                'steps': json.dumps(sanitized_result),
+                'tokens_per_run': tokens_per_run
+            }).execute()
+            
+            supabase.table('activities').insert({
+                'user_id': user_id,
+                'action_type': 'recording_completed',
+                'details': json.dumps({'routine_name': routine_name})
+            }).execute()
+            
+            return f"Recording completed for routine: {routine_name}"
         else:
-            logger.warning(f"No actions recorded for routine: {routine_name}")
             return f"No actions recorded for routine: {routine_name}"
-    except SoftTimeLimitExceeded:
-        logger.error(f"Recording task timed out for routine: {routine_name}")
-        return f"Recording task timed out for routine: {routine_name}"
     except Exception as e:
-        logger.error(f"Error during recording: {str(e)}")
+        logging.error(f"Error during recording: {str(e)}")
         raise
 
 @celery.task
@@ -121,47 +92,26 @@ def run_routine(routine_id, user_id, access_token):
         raise
 
 @celery.task(bind=True, name='backend.tasks.start_playback_task', max_retries=0, soft_time_limit=None, time_limit=None)
-def start_playback_task(self, routine_name, repeat_indefinitely=False, access_token=None):
+def start_playback_task(self, routine_name, repeat_indefinitely, user_id):
     try:
-        client = get_authenticated_client(access_token)
-        user = client.auth.get_user()
-        if not user or not user.user:
-            raise ValueError("Failed to authenticate user")
-        user_id = user.user.id
-        
-        # Log playback start
-        client.table('activities').insert({
-            'user_id': user_id,
-            'action_type': 'playback_started',
-            'details': json.dumps({'routine_name': routine_name, 'repeat_indefinitely': repeat_indefinitely})
-        }).execute()
-        
-        # Fetch the routine
-        routine = client.table('routines').select('*').eq('name', routine_name).eq('user_id', user_id).single().execute()
-
+        routine = supabase.table('routines').select('*').eq('name', routine_name).eq('user_id', user_id).single().execute()
         if not routine.data:
             raise ValueError(f"Routine not found: {routine_name}")
 
-        # Start playback
-        player = start_playback(routine_name, json.loads(routine.data['steps']), repeat_indefinitely)
+        steps = json.loads(routine.data['steps'])
+        player = start_playback(routine_name, steps, repeat_indefinitely)
         
-        # After playback completes
         tokens_generated = routine.data['tokens_per_run']
-        runs_completed = 1  # For non-repeat playback
+        runs_completed = player.get_iteration_count() if repeat_indefinitely else 1
 
-        if repeat_indefinitely:
-            runs_completed = player.get_iteration_count()  # Assuming this method exists
-
-        # Update user stats
-        client.table('user_stats').upsert({
+        supabase.table('user_stats').upsert({
             'user_id': user_id,
-            'total_routine_runs': client.table('user_stats').raw(f'total_routine_runs + {runs_completed}'),
-            'total_tokens_generated': client.table('user_stats').raw(f'total_tokens_generated + {tokens_generated * runs_completed}'),
+            'total_routine_runs': supabase.raw(f'total_routine_runs + {runs_completed}'),
+            'total_tokens_generated': supabase.raw(f'total_tokens_generated + {tokens_generated * runs_completed}'),
             'last_run_date': 'now()'
         }).execute()
 
-        # Log playback completion
-        client.table('activities').insert({
+        supabase.table('activities').insert({
             'user_id': user_id,
             'action_type': 'playback_completed',
             'details': json.dumps({
@@ -173,7 +123,7 @@ def start_playback_task(self, routine_name, repeat_indefinitely=False, access_to
 
         return f"Playback completed for routine: {routine_name}"
     except Exception as e:
-        logger.error(f"Error during playback: {str(e)}")
+        logging.error(f"Error during playback: {str(e)}")
         raise
 
 @celery.task(name='backend.tasks.stop_playback_task')
