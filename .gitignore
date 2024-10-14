@@ -41,3 +41,12 @@ Thumbs.db
 
 #Chrome User Data
 chrome_user_data*/
+
+# Virtual Environments
+backend/backend_env/
+frontend/frontend_env/
+
+venv/
+dropfarm_env/
+*.pyc
+__pycache__/

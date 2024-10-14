@@ -1,6 +1,6 @@
 // File: C:\Users\privatebabe\OneDrive\Desktop\Coding\Projects\dropfarm\dropfarm2_full-app\frontend\src\app\dashboard\page.tsx
 import * as entry from '../../../../src/app/dashboard/page.js'
-import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
+import type { ResolvingMetadata } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
 type TEntry = typeof import('../../../../src/app/dashboard/page.js')
 
@@ -19,8 +19,6 @@ checkFields<Diff<{
   
   metadata?: any
   generateMetadata?: Function
-  viewport?: any
-  generateViewport?: Function
   
 }, TEntry, ''>>()
 
@@ -31,12 +29,6 @@ checkFields<Diff<PageProps, FirstArg<TEntry['default']>, 'default'>>()
 if ('generateMetadata' in entry) {
   checkFields<Diff<PageProps, FirstArg<MaybeField<TEntry, 'generateMetadata'>>, 'generateMetadata'>>()
   checkFields<Diff<ResolvingMetadata, SecondArg<MaybeField<TEntry, 'generateMetadata'>>, 'generateMetadata'>>()
-}
-
-// Check the arguments and return type of the generateViewport function
-if ('generateViewport' in entry) {
-  checkFields<Diff<PageProps, FirstArg<MaybeField<TEntry, 'generateViewport'>>, 'generateViewport'>>()
-  checkFields<Diff<ResolvingViewport, SecondArg<MaybeField<TEntry, 'generateViewport'>>, 'generateViewport'>>()
 }
 
 // Check the arguments and return type of the generateStaticParams function

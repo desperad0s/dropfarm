@@ -2,22 +2,25 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
-export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { user, isLoading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !session && pathname !== '/login') {
+    if (!isLoading && !user) {
       router.push('/login');
     }
-  }, [session, loading, router, pathname]);
+  }, [user, isLoading, router]);
 
-  if (loading) {
+  if (isLoading) {
     return <div>Loading...</div>;
   }
 
-  return session ? <>{children}</> : null;
+  return user ? <>{children}</> : null;
 }

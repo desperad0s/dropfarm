@@ -13,18 +13,32 @@ type ActivityLogProps = {
 };
 
 export function ActivityLog({ activities }: ActivityLogProps) {
+  const getActivityDescription = (activity: Activity) => {
+    const details = JSON.parse(activity.details);
+    switch (activity.action_type) {
+      case 'recording_started':
+        return `Started recording routine: ${details.routine_name}`;
+      case 'recording_completed':
+        return `Completed recording routine: ${details.routine_name}`;
+      case 'playback_started':
+        return `Started playback of routine: ${details.routine_name}`;
+      case 'playback_completed':
+        return `Completed playback of routine: ${details.routine_name} (${details.runs_completed} runs, ${details.tokens_generated} tokens)`;
+      case 'playback_error':
+        return `Error during playback of routine: ${details.routine_name} - ${details.error}`;
+      default:
+        return `${activity.action_type}: ${JSON.stringify(details)}`;
+    }
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-      <h2 className="text-xl font-bold mb-4">Activity Log</h2>
-      <ul className="space-y-2">
-        {activities.map((activity) => (
-          <li key={activity.id} className="border-b pb-2">
-            <p className="font-semibold">{activity.action_type}</p>
-            <p className="text-sm">{activity.details}</p>
-            <p className="text-xs text-gray-500">{new Date(activity.created_at).toLocaleString()}</p>
-          </li>
-        ))}
-      </ul>
+    <div className="space-y-2">
+      {activities.map((activity) => (
+        <div key={activity.id} className="bg-gray-100 p-2 rounded">
+          <p>{getActivityDescription(activity)}</p>
+          <p className="text-sm text-gray-500">{new Date(activity.created_at).toLocaleString()}</p>
+        </div>
+      ))}
     </div>
   );
 }

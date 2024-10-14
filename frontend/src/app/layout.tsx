@@ -1,9 +1,9 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
-import ClientLayout from '@/components/ClientLayout'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeProvider } from "@/components/theme-provider"
+import Layout from '@/components/Layout'
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -18,8 +18,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} bg-background text-foreground`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -27,7 +27,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <ClientLayout>{children}</ClientLayout>
+            <Layout>
+              {children}
+            </Layout>
           </AuthProvider>
           <Toaster />
         </ThemeProvider>

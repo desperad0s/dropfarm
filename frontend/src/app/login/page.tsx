@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const { signIn } = useAuth()
+  const { signIn, user } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
@@ -34,6 +34,12 @@ export default function Login() {
         duration: 3000,
       })
     }
+  }
+
+  // Redirect if user is already logged in
+  if (user) {
+    router.push('/dashboard')
+    return null
   }
 
   return (
