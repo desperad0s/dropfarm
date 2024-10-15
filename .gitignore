@@ -1,0 +1,52 @@
+# .gitignore
+# Ignore environment files
+.env
+frontend/.env.local
+
+# Include example environment files
+!.env.example
+!frontend/.env.example
+
+# Node modules
+node_modules/
+
+# Python virtual environment
+venv/
+
+# Compiled Python files
+*.pyc
+__pycache__/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Build outputs
+/build
+/dist
+
+# Temporary files
+*.tmp
+*.bak
+
+#Cursor rules
+.cursorrules
+
+#Chrome User Data
+chrome_user_data*/
+
+# Virtual Environments
+backend/backend_env/
+frontend/frontend_env/
+
+venv/
+dropfarm_env/
+*.pyc
+__pycache__/
